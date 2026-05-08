@@ -1,0 +1,20 @@
+# macOS AppleDouble metadata (created when this drive was used on a Mac)
+._*
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+desktop.ini
+
+# Logs / temp
+*.log
+*.tmp

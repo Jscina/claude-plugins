@@ -1,0 +1,70 @@
+---
+name: promote
+description: Promote a confirmed finding from an active RAG issue card to the system knowledge layer. Use this skill when the user says "promote this finding", "this is a benchmark moment", "add to system knowledge", "promote to system rag", "this belongs in known-behaviors", or makes any statement that a confirmed finding reveals something durable about the system's behavior, schema design, or service interactions. Also triggers for "move to system", "this is reusable knowledge", or "promote benchmark".
+---
+
+# RAG Promote
+
+Take a confirmed finding from an active issue card and promote it to the appropriate `system/` file in the RAG memory system. This is the bridge between issue-specific investigation and long-term system knowledge.
+
+## Prerequisites
+
+- The finding must be **confirmed**, not just hypothesized
+- The finding must apply **beyond this specific card** — it teaches something about how the system works in general
+- An active card must exist with the finding logged in `trace.md`
+
+## Workflow
+
+1. **Identify the finding.** Ask for or infer:
+   - **Card ID** — which active card this comes from
+   - **Finding text** — the durable insight to promote
+   - **Short title** — a concise name for the finding (used as a heading in the target file)
+   - **Impact statement** — what this affects going forward
+
+2. **Determine the target.** Ask or infer which `system/` subfolder is appropriate:
+   - `architecture/` — repo structure, integration topology, deployment patterns
+   - `schemas/` — DDL quirks, table relationships, schema-level gotchas
+   - `services/` — service behavior, config edge cases, controller-specific quirks
+   - `known-behaviors/` — general system behaviors, cross-cutting concerns (this is the most common target)
+
+   Also determine the **target filename** (e.g., `e3-log-truncation.md`). If the file already exists, the finding will be appended as a new section.
+
+3. **Write to the system file.** Create or append to `system/<subfolder>/<filename>.md` using this format:
+
+   ```markdown
+   ## [Short title]
+   **Source**: CARD-XXXXX | YYYY-MM-DD
+   **Finding**: [Body of the finding]
+   **Impact**: [What this affects going forward]
+   ```
+
+   If creating a new file, add a top-level heading first:
+   ```markdown
+   # [Filename as title]
+
+   ## [Short title]
+   ...
+   ```
+
+4. **Update the card's benchmarks.md.** Append or update an entry:
+
+   ```
+   ---
+   date: YYYY-MM-DD
+   session: claude / gemini / manual
+   finding: [Short description]
+   target: system/<subfolder>/<filename>.md
+   status: promoted
+   ---
+   ```
+
+5. **Confirm and remind.** Tell the user:
+   - What was written and where
+   - Remind them to commit `system/` to Git
+   - Remind them that `trace.md` was intentionally not modified (promotion is tracked in `benchmarks.md` only)
+
+## Key constraints
+
+- **Never modify trace.md** during promotion — promotion tracking lives in `benchmarks.md` only
+- If the target system file already exists, append the new finding as a new section — never overwrite existing content
+- Always include the source card ID in the promoted finding for traceability

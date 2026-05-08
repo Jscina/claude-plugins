@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "rag",
+  "description": "Two-layer RAG memory system for investigation work — System Knowledge (durable, versioned) and Issue Memory (active cards). Bundles init, card, trace, promote, context, and the memory orchestrator.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Nicholas DeTore",
+    "email": "nicholas.detore@pm.me",
+    "url": "https://github.com/nicholas1513"
+  },
+  "homepage": "https://github.com/nicholas1513/claude-plugins",
+  "repository": "https://github.com/nicholas1513/claude-plugins",
+  "license": "MIT",
+  "keywords": [
+    "rag",
+    "memory",
+    "investigation",
+    "benchmarks",
+    "knowledge-base"
+  ]
+}
