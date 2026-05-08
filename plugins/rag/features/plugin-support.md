@@ -194,7 +194,7 @@ company-plugins/                      ← the marketplace repo
 │   └── code-review/
 ```
 
-With `"metadata": { "pluginRoot": "./plugins" }` in marketplace.json, plugin paths can omit the `plugins/` prefix.
+**Caveat — `metadata.pluginRoot` is currently non-functional.** The Claude Code installer (verified 2026-05-08) ignores `metadata.pluginRoot` and resolves `source` paths directly against the marketplace repo root. `claude plugin validate` does not warn — but `claude plugin install` fails with `Source path does not exist`. **Always use the fully qualified path in `source`** (e.g., `"source": "./plugins/rag"`) and omit `metadata.pluginRoot` until a future Claude Code release confirms support.
 
 ### Adding the marketplace (user side)
 
