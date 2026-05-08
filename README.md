@@ -78,3 +78,4 @@ claude plugin marketplace add ./claude-plugins
 ## License
 
 [MIT](./LICENSE) © 2026 Nicholas DeTore
+# claude-plugins
