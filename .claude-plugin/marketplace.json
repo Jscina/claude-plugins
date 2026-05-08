@@ -7,13 +7,10 @@
     "url": "https://github.com/nicholas1513"
   },
   "description": "Personal Claude Code plugin marketplace by Nicholas DeTore.",
-  "metadata": {
-    "pluginRoot": "./plugins"
-  },
   "plugins": [
     {
       "name": "rag",
-      "source": "./rag",
+      "source": "./plugins/rag",
       "description": "Two-layer RAG memory system for investigation work — System Knowledge (durable, versioned) and Issue Memory (active cards). Bundles /rag:init, /rag:card, /rag:trace, /rag:promote, /rag:context, and the /rag:memory orchestrator.",
       "keywords": ["rag", "memory", "investigation", "benchmarks", "knowledge-base"]
     }
