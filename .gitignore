@@ -18,3 +18,7 @@ desktop.ini
 # Logs / temp
 *.log
 *.tmp
+
+# Built artifacts (decision-engine MCP server is built on first session via hooks/ensure-build.sh)
+plugins/decision-engine/mcp-server/dist/
+plugins/decision-engine/mcp-server/node_modules/

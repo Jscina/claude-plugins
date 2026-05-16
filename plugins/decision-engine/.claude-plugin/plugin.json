@@ -1,6 +1,6 @@
 {
   "name": "decision-engine",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Personal goal-indexed decision engine. Treats goals as first-class indexed objects, evaluates new inputs against them via reusable workflows, and persists runs for longitudinal analysis.",
   "author": {
     "name": "Nicholas DeTore",
