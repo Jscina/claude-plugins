@@ -1,0 +1,28 @@
+{
+  "name": "@decision-engine/mcp-server",
+  "version": "0.1.0",
+  "description": "MCP server for the Decision Engine plugin. Provides CRUD tools for goals, workflows, and runs.",
+  "type": "module",
+  "main": "dist/server.js",
+  "bin": {
+    "decision-engine-mcp": "dist/server.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "gray-matter": "^4.0.3",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

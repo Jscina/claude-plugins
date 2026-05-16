@@ -1,0 +1,17 @@
+{
+  "name": "decision-engine",
+  "version": "0.1.0",
+  "description": "Personal goal-indexed decision engine. Treats goals as first-class indexed objects, evaluates new inputs against them via reusable workflows, and persists runs for longitudinal analysis.",
+  "author": {
+    "name": "Nick"
+  },
+  "mcpServers": {
+    "decision-engine": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-server/dist/server.js"],
+      "env": {
+        "DECISION_ENGINE_ROOT": "${CLAUDE_PLUGIN_ROOT}"
+      }
+    }
+  }
+}
