@@ -10,13 +10,27 @@
   "plugins": [
     {
       "name": "rag",
-      "source": "./plugins/rag",
+      "source": {
+        "source": "github",
+        "repo": "nicholas1513/claude-plugins",
+        "ref": "rag--v0.1.1"
+      },
       "description": "Two-layer RAG memory system for investigation work — System Knowledge (durable, versioned) and Issue Memory (active cards). Bundles /rag:init, /rag:card, /rag:trace, /rag:promote, /rag:context, and the /rag:memory orchestrator.",
-      "keywords": ["rag", "memory", "investigation", "benchmarks", "knowledge-base"]
+      "keywords": [
+        "rag",
+        "memory",
+        "investigation",
+        "benchmarks",
+        "knowledge-base"
+      ]
     },
     {
       "name": "decision-engine",
-      "source": "./plugins/decision-engine",
+      "source": {
+        "source": "github",
+        "repo": "nicholas1513/claude-plugins",
+        "ref": "decision-engine--v0.1.0"
+      },
       "description": "Personal goal-indexed decision engine. Treats goals as first-class indexed objects, evaluates new inputs against them via reusable workflows (e.g., house_analyzer), and persists runs for longitudinal analysis. Ships a session-start agent (@decision-engineer), a reactive skill, and an MCP server for state management."
     }
   ]
