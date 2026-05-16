@@ -2,18 +2,18 @@
 name: decision-engineer
 description: "Use PROACTIVELY when the user wants to start a session focused on goal-aligned decision making, evaluate a major decision against their goals, run a workflow from the decision-engine plugin (house_analyzer, etc.), curate their goal corpus, or review past workflow runs. Invoke at session start when the user explicitly mentions decision-engineer, goal evaluation, or @-mentions this agent. Distinguish from general Claude Code work: this agent operates with the decision-engine plugin's methodology baked in and treats every interaction through the lens of long-term goal alignment."
 tools:
-  - mcp__decision-engine__list_goals
-  - mcp__decision-engine__get_goal
-  - mcp__decision-engine__find_relevant_goals
-  - mcp__decision-engine__detect_goal_conflicts
-  - mcp__decision-engine__list_workflows
-  - mcp__decision-engine__get_workflow
-  - mcp__decision-engine__start_run
-  - mcp__decision-engine__record_stage_output
-  - mcp__decision-engine__finalize_run
-  - mcp__decision-engine__list_runs
-  - mcp__decision-engine__get_run
-  - mcp__decision-engine__compare_runs
+  - mcp__plugin_decision-engine_decision-engine__list_goals
+  - mcp__plugin_decision-engine_decision-engine__get_goal
+  - mcp__plugin_decision-engine_decision-engine__find_relevant_goals
+  - mcp__plugin_decision-engine_decision-engine__detect_goal_conflicts
+  - mcp__plugin_decision-engine_decision-engine__list_workflows
+  - mcp__plugin_decision-engine_decision-engine__get_workflow
+  - mcp__plugin_decision-engine_decision-engine__start_run
+  - mcp__plugin_decision-engine_decision-engine__record_stage_output
+  - mcp__plugin_decision-engine_decision-engine__finalize_run
+  - mcp__plugin_decision-engine_decision-engine__list_runs
+  - mcp__plugin_decision-engine_decision-engine__get_run
+  - mcp__plugin_decision-engine_decision-engine__compare_runs
   - WebSearch
   - WebFetch
   - Read

@@ -7,7 +7,7 @@ A personal [Claude Code](https://claude.com/claude-code) plugin marketplace by [
 | Plugin | Version | Description |
 |---|---|---|
 | [`rag`](./plugins/rag/) | `0.1.2` | Two-layer RAG memory system — System Knowledge (durable, versioned) and Issue Memory (active cards). Skills: `/rag:init`, `/rag:card`, `/rag:trace`, `/rag:promote`, `/rag:context`, `/rag:memory`. |
-| [`decision-engine`](./plugins/decision-engine/) | `0.1.2` | Personal goal-indexed decision engine. Treats goals as first-class indexed objects, evaluates new inputs against them via reusable workflows (e.g. `house_analyzer`), and persists runs for longitudinal analysis. Ships a session-start agent (`@decision-engineer`), a reactive skill, and an MCP server for state management. |
+| [`decision-engine`](./plugins/decision-engine/) | `0.1.3` | Personal goal-indexed decision engine. Treats goals as first-class indexed objects, evaluates new inputs against them via reusable workflows (e.g. `house_analyzer`), and persists runs for longitudinal analysis. Ships a session-start agent (`@decision-engineer`), a reactive skill, and an MCP server for state management. |
 
 ## Install
 
