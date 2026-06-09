@@ -14,6 +14,7 @@ These five sibling skills (also under the `rag` plugin) handle individual operat
 | Skill | Slash | Purpose | When to route |
 |---|---|---|---|
 | `init` | `/rag:init` | Scaffold the `rag-memory/` directory from scratch | User wants to set up the system for the first time |
+| `migrate` | `/rag:migrate` | Upgrade an existing corpus to the current schema | A corpus was built by an older plugin version (missing `.gitignore`/`backlog`/`done`, or `trace.md` being committed) |
 | `card` | `/rag:card` | Create a new `CARD-XXXXX/` for an issue | User is starting work on a ticket, bug, or issue |
 | `trace` | `/rag:trace` | Append an entry to a card's `trace.md` | User wants to log a finding, rule-out, hypothesis, or next step |
 | `promote` | `/rag:promote` | Promote a finding to `system/` | User has a confirmed durable finding to preserve |
@@ -62,10 +63,10 @@ Most RAG interactions follow a predictable lifecycle. Use this to figure out whe
 │                   CLOSING A CARD                         │
 │                                                          │
 │  "this issue is resolved" / "closing this card"          │
-│  ──► Check benchmarks.md for any pending entries         │
-│  ──► Prompt user to promote or reject each one           │
-│  ──► Move card from issues/active/ to issues/closed/     │
-│  ──► Remind user to commit system/ if anything promoted  │
+│  ──► Sweep trace.md for missed benchmark moments         │
+│  ──► Review benchmarks.md → promote or reject            │
+│  ──► Ask destination: done/ (local) or archive/ (commit) │
+│  ──► Move there; archive commits, done stays local       │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -73,7 +74,7 @@ Most RAG interactions follow a predictable lifecycle. Use this to figure out whe
 
 When the user sends a message, determine which sub-skill to invoke:
 
-1. **Check if rag-memory/ exists.** If the user references RAG but no directory is found, route to `/rag:init` first. Ask where they want it created.
+1. **Check if rag-memory/ exists.** If the user references RAG but no directory is found, route to `/rag:init` first. Ask where they want it created. **If it exists, check it's current** — run `rag-migrate --check` (or look for `.rag-meta.json` with the current `schema`, plus `issues/backlog/`, `issues/done/`, and `.gitignore`). If it's from an older plugin version, route to `/rag:migrate` before other operations; otherwise the commit boundary won't apply and `trace.md` may be getting committed.
 
 2. **Match intent to sub-skill.** Use these patterns:
 
@@ -82,6 +83,7 @@ When the user sends a message, determine which sub-skill to invoke:
    - **Logging language** ("found that", "ruled out", "confirmed", "disproved", "suspect", "next step is", "log this") → `/rag:trace`
    - **Promotion language** ("benchmark moment", "promote", "this is durable", "add to system knowledge", "belongs in known-behaviors/services/schemas") → `/rag:promote`
    - **Context/session language** ("build context", "assemble context", "what do we know about", "starting a new session", "load the card", "get me up to speed") → `/rag:context`
+   - **Planning language** ("not ready to start", "park this for later", "backlog this", "planned but not active") → create a card in `issues/backlog/` (local, `context.md` only). Activate later by moving it to `issues/active/`.
    - **Closing language** ("resolved", "closing this card", "done with this issue", "wrap up") → Card closing workflow (see below)
    - **General questions** ("how does RAG work", "what's a benchmark moment", "explain the system") → Answer from `references/structure.md` directly
 
@@ -94,12 +96,34 @@ When the user sends a message, determine which sub-skill to invoke:
 
 This isn't a separate sub-skill because it's a short orchestration sequence:
 
-1. Read `issues/active/CARD-XXXXX/benchmarks.md`
-2. Check for any entries with `status: pending`
-3. For each pending entry, ask the user: promote or reject?
-4. Run `/rag:promote` for each promotion, or update status to `rejected`
-5. Move the entire `CARD-XXXXX/` directory from `issues/active/` to `issues/closed/`
-6. If anything was promoted, remind the user to commit `system/` to Git
+1. **Sweep the trace for missed benchmarks.** Read `issues/active/CARD-XXXXX/trace.md` and look for
+   `type: finding` (or otherwise confirmed) entries that reveal durable system behavior but were
+   never tagged in `benchmarks.md`. Propose each as a candidate `pending` benchmark. The sweep only
+   **reads** the trace — it never modifies it. (Same trace read as the Skill-discovery pass below;
+   do both at once.)
+2. Read `issues/active/CARD-XXXXX/benchmarks.md` and collect all `status: pending` entries (including
+   any just added by the sweep).
+3. For each pending entry, ask the user: promote or reject? Run `/rag:promote` for each promotion, or
+   update its status to `rejected`.
+4. **Ask the destination:** `done/` (finished locally, **not committed**) or `archive/` (durable,
+   **committed** shared record).
+5. Move the entire `CARD-XXXXX/` directory from `issues/active/` to the chosen `issues/done/` or
+   `issues/archive/`.
+6. If **archived**, remind the user to commit the card's `context.md` + `benchmarks.md` + `artifacts/`
+   (its `trace.md` is gitignored) plus `system/` if anything was promoted. If **done**, nothing is committed.
+
+## Skill-discovery pass (mining traces)
+
+Trace logs are the richest signal for *tooling* opportunities, not just investigation history.
+Whenever you review a trace — during `/rag:context`, a close ceremony, or ad hoc — also watch for:
+
+- **Repeated multi-step manual sequences** → candidate for a script or a new skill.
+- **The same class of mistake or dead-end recurring** across entries or cards → candidate guardrail.
+- **A workflow that maps cleanly onto a known, effective skill** → adopt it.
+
+Capture each candidate (adopt-existing vs. build-custom) with the recurring pattern it addresses; see
+`features/skill-opportunities.md` for the capture format. This pass shares the same trace read as the
+benchmark sweep above — do them together.
 
 ## Handling ambiguity
 
@@ -113,16 +137,18 @@ If the user's intent doesn't clearly map to one sub-skill:
 If the user asks "what can I do with RAG" or "how do I use this", give them this:
 
 - **First time?** → `/rag:init`
+- **Upgraded the plugin?** → `/rag:migrate` (gap-fills an older corpus: boundary, `backlog/`+`done/`, docs)
+- **Planning ahead?** → "backlog this" (parks a `context.md`-only card in `issues/backlog/`, local)
 - **New issue?** → `/rag:card` (then provide ticket ID)
 - **During investigation** → `/rag:trace` for findings, rule-outs, hypotheses, next steps
 - **Durable insight?** → `/rag:promote`
 - **New AI session?** → `/rag:context`
-- **Done?** → "close card [card ID]" (orchestrator handles the wrap-up sequence)
+- **Done?** → "close card [card ID]" (orchestrator sweeps the trace, reviews benchmarks, then files it under `done/` or `archive/`)
 
 ## Note on actual retrieval
 
 This plugin currently performs **assembly**, not retrieval — `/rag:context` loads files by explicit card ID and folder selection. The "RAG" name reflects the eventual destination, not the current mechanism.
 
-A semantic-retrieval layer (embeddings + vector store) is planned for activation once the corpus crosses ~50 findings/closed cards, at which point browsing-by-filename stops scaling. The plan lives in `features/slot-in-rag.md` at the plugin root. Empty `bin/` and `.mcp.json` placeholders are already reserved for the indexer and search MCP server.
+A semantic-retrieval layer (embeddings + vector store) is planned for activation once the corpus crosses ~50 findings/archived cards, at which point browsing-by-filename stops scaling. The plan lives in `features/slot-in-rag.md` at the plugin root. The `.mcp.json` placeholder is already reserved for the search MCP server; the indexer will live in `bin/` alongside the existing `rag-new-card`.
 
 If the user asks about semantic search, similarity-based lookup, or "find me prior cases like this," tell them retrieval isn't wired up yet and point them at `features/slot-in-rag.md` for the activation plan.

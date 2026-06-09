@@ -22,3 +22,7 @@ desktop.ini
 # Built artifacts (decision-engine MCP server is built on first session via hooks/ensure-build.sh)
 plugins/decision-engine/mcp-server/dist/
 plugins/decision-engine/mcp-server/node_modules/
+
+# Python bytecode (rag plugin ships bin/rag-new-card)
+__pycache__/
+*.pyc

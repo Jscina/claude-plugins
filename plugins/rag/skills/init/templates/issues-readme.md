@@ -1,41 +1,49 @@
 # Issue Memory
 
-This directory contains investigation cards for active, recently closed, and archived issues.
+This directory holds investigation cards across their lifecycle: planned (backlog), under
+investigation (active), finished-locally (done), and the durable committed record (archive).
 
 ## Card Lifecycle
 
-1. **Create** — When starting work on an issue, create a card in `active/` using `/rag:card`
-2. **Investigate** — Use `/rag:trace` to log findings, rule-outs, hypotheses, and next steps
-3. **Promote** — When a finding is durable, use `/rag:promote` to move it to `system/`
-4. **Close** — When the issue is resolved, move the card from `active/` to `closed/`
-5. **Archive** — After two quarters in `closed/`, move to `archive/`
+1. **Plan (optional)** — Park a not-yet-started idea as a card in `backlog/` (local, per-dev).
+2. **Create / Activate** — Start work by creating a card in `active/` with `/rag:card`
+   (or move one from `backlog/` to `active/`).
+3. **Investigate** — Use `/rag:trace` to log findings, rule-outs, hypotheses, and next steps.
+4. **Promote** — When a finding is durable, use `/rag:promote` to write it to `system/`.
+5. **Close — pick a terminal state:**
+   - **Done** → move the card to `done/`. Local, dev-managed; **not committed**. Keep or clean up as you like.
+   - **Archive** → move the card to `archive/`. This is the **durable, committed shared record**.
+
+The close ceremony (run via the `memory` orchestrator) sweeps the trace for missed benchmarks,
+reviews pending benchmarks, then asks **done or archive**.
 
 ## Directory Layout
 
-| Subfolder | Contents | Retention |
+| Subfolder | Contents | Git |
 |---|---|---|
-| `active/` | Cards currently under investigation | Duration of investigation |
-| `closed/` | Recently resolved cards | Rolling 2 quarters |
-| `archive/` | Older cards for reference | Indefinite, low priority |
+| `backlog/` | Planned, not yet active | Local (gitignored) |
+| `active/` | Cards currently under investigation | Local (gitignored) |
+| `done/` | Finished locally, kept per-dev | Local (gitignored) |
+| `archive/` | Durable shared record | **Committed** (except `trace.md`) |
+
+> **Legacy `closed/`** — superseded by `done/` + `archive/`. Existing `closed/` cards stay readable;
+> create no new ones. Migrate when convenient: move to `done/` (keep local) or `archive/` (commit).
 
 ## Card Structure
 
 Each card lives in `CARD-XXXXX/` and contains:
 
-- `context.md` — Issue ID, source, symptom, repos, schema tables, related issues
-- `trace.md` — Running analysis log (append-only)
-- `benchmarks.md` — Benchmark moments found during this investigation
-- `artifacts/` — Code snippets, DDL excerpts, log samples, schema diffs
+- `context.md` — Issue ID, source, symptom, repos, related issues  *(committed in archive/)*
+- `trace.md` — Running analysis log (append-only)  *(always local — never committed)*
+- `benchmarks.md` — Benchmark moments found during this investigation  *(committed in archive/)*
+- `artifacts/` — Code snippets, DDL excerpts, log samples, schema diffs  *(committed in archive/)*
 
-## When to Archive
+Backlog cards start with `context.md` only; `trace.md` / `benchmarks.md` / `artifacts/` appear when
+the card is activated.
 
-Move a card from `closed/` to `archive/` when:
-- It has been closed for more than 2 quarters
-- All benchmark-worthy findings have been promoted to `system/`
-- The card is no longer referenced by active investigations
+## Close Checklist (before moving out of `active/`)
 
-## Extraction Checklist (Before Archiving)
-
-- [ ] All benchmark moments have been reviewed (promoted or rejected)
-- [ ] No pending entries remain in `benchmarks.md`
-- [ ] Related issues in other active cards have been updated if needed
+- [ ] `trace.md` swept for un-tagged benchmark-worthy findings
+- [ ] All benchmark moments reviewed (promoted or rejected) — no `pending` left in `benchmarks.md`
+- [ ] Related issues in other active cards updated if needed
+- [ ] Destination chosen: `done/` (local) or `archive/` (committed)

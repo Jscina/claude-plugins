@@ -1,0 +1,188 @@
+#!/usr/bin/env python3
+"""
+rag-new-card — scaffold a new RAG investigation card from templates in one command.
+
+Part of the `rag` plugin. `bin/` is on PATH when the plugin loads, so this is callable
+as `rag-new-card` from skills, hooks, or a shell.
+
+Usage:
+  rag-new-card --id ADO-40576 --source ado --symptom "Export truncates at 4096 bytes"
+  rag-new-card --id "Planned: retry storms" --backlog
+  rag-new-card --id BUG-12 --source qa --symptom "..." --root /path/to/rag-memory
+
+Behavior:
+  * Active cards (default) get context.md + trace.md + benchmarks.md + artifacts/.gitkeep.
+  * Backlog cards (--backlog) get context.md only; the rest appear when the card is activated.
+  * Card IDs are sanitized to a single safe path component (no separators, no FS-hostile chars)
+    with a canonical CARD- prefix.
+  * Never overwrites an existing card directory (exits non-zero).
+  * Card creation is atomic-ish: templates are validated and rendered before any directory is
+    created, and a partially-written card is rolled back on failure (so a retry isn't blocked).
+  * trace.md is local working state and is gitignored by the corpus .gitignore —
+    created here, but never committed.
+
+Dependencies: Python 3 standard library only. No install step.
+"""
+from __future__ import annotations
+
+import argparse
+import datetime as _dt
+import os
+import re
+import shutil
+import sys
+from pathlib import Path
+
+ACTIVE_FILES = ("context.md", "trace.md", "benchmarks.md")
+SOURCES = ("ado", "qa", "prod", "other")
+
+# Path separators + characters illegal on Windows/exFAT + control chars.
+_UNSAFE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+
+def normalize_card_name(raw: str) -> str:
+    """Reduce an arbitrary id to one safe path component with a canonical CARD- prefix.
+
+    Strips '#', neutralizes path separators and FS-hostile characters, drops pure-dot
+    segments (so '..' can't yield traversal), collapses whitespace/hyphens.
+    """
+    cleaned = _UNSAFE.sub(" ", raw.replace("#", ""))
+    parts = [p for p in cleaned.split() if p.strip(".")]  # drop '.', '..', '...' segments
+    name = re.sub(r"-{2,}", "-", "-".join(parts)).strip("-.")
+    if not name:
+        raise ValueError(f"card id is empty after sanitization: {raw!r}")
+    # Canonical CARD- prefix (uppercase), preserving the rest of the id as given.
+    name = "CARD-" + (name[5:] if name.upper().startswith("CARD-") else name)
+    if "/" in name or "\\" in name or os.sep in name:  # defensive: must be one component
+        raise ValueError(f"invalid card id after sanitization: {name!r}")
+    return name
+
+
+def find_templates_dir(override: str | None) -> Path:
+    """Locate skills/card/templates/. Override > CLAUDE_PLUGIN_ROOT > script-relative."""
+    candidates: list[Path] = []
+    if override:
+        candidates.append(Path(override).expanduser())
+    plugin_root = os.environ.get("CLAUDE_PLUGIN_ROOT")
+    if plugin_root:
+        candidates.append(Path(plugin_root) / "skills" / "card" / "templates")
+    # bin/rag-new-card -> <plugin_root>/skills/card/templates
+    candidates.append(Path(__file__).resolve().parents[1] / "skills" / "card" / "templates")
+    for c in candidates:
+        if (c / "context.md").is_file():
+            return c
+    raise FileNotFoundError(
+        "could not locate card templates (looked in: "
+        + ", ".join(str(c) for c in candidates)
+        + "). Pass --templates-dir."
+    )
+
+
+def find_corpus_root(override: str | None) -> Path:
+    """Find the rag-memory/ corpus: --root, a rag-memory/ in CWD, or an ancestor."""
+    if override:
+        root = Path(override).expanduser().resolve()
+        if not (root / "issues").is_dir():
+            raise FileNotFoundError(f"--root {root} has no issues/ dir; is it a rag-memory corpus?")
+        return root
+    cwd = Path.cwd().resolve()
+    if (cwd / "rag-memory" / "issues").is_dir():
+        return cwd / "rag-memory"
+    for p in (cwd, *cwd.parents):
+        if p.name == "rag-memory" and (p / "issues").is_dir():
+            return p
+        if (p / "rag-memory" / "issues").is_dir():
+            return p / "rag-memory"
+    raise FileNotFoundError(
+        f"could not find a rag-memory/ corpus from {cwd}. Run /rag:init first, or pass --root."
+    )
+
+
+def substitute(text: str, mapping: dict[str, str]) -> str:
+    for token, value in mapping.items():
+        text = text.replace(token, value)
+    return text
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="rag-new-card",
+        description="Scaffold a new RAG investigation card from templates.",
+    )
+    parser.add_argument("--id", required=True, help="Card ID, e.g. ADO-40576 (CARD- prefix added if absent)")
+    parser.add_argument("--source", default="other", choices=SOURCES, help="Issue source")
+    parser.add_argument("--symptom", default="", help="One-line symptom (required for active cards)")
+    parser.add_argument("--backlog", action="store_true", help="Create in issues/backlog/ (context.md only)")
+    parser.add_argument("--root", default=None, help="Path to the rag-memory corpus (default: auto-detect)")
+    parser.add_argument("--templates-dir", default=None, help="Override templates directory")
+    parser.add_argument("--date", default=_dt.date.today().isoformat(), help="Date stamp (YYYY-MM-DD)")
+    args = parser.parse_args(argv)
+
+    try:
+        card_name = normalize_card_name(args.id)
+        templates = find_templates_dir(args.templates_dir)
+        root = find_corpus_root(args.root)
+    except (ValueError, FileNotFoundError) as e:
+        print(f"rag-new-card: error: {e}", file=sys.stderr)
+        return 2
+
+    if not args.backlog and not args.symptom:
+        print("rag-new-card: error: --symptom is required for active cards (omit only with --backlog)",
+              file=sys.stderr)
+        return 2
+
+    state = "backlog" if args.backlog else "active"
+    card_dir = root / "issues" / state / card_name
+    if card_dir.exists():
+        print(f"rag-new-card: error: card already exists: {card_dir} (refusing to overwrite)",
+              file=sys.stderr)
+        return 1
+
+    mapping = {
+        "{{CARD_ID}}": card_name,
+        "{{DATE}}": args.date,
+        "{{SOURCE}}": args.source,
+        "{{SYMPTOM}}": args.symptom,
+    }
+
+    # Validate + render ALL templates before touching the filesystem, so a missing
+    # template fails before any directory is created.
+    files = ("context.md",) if args.backlog else ACTIVE_FILES
+    rendered: dict[str, str] = {}
+    for fname in files:
+        tmpl = templates / fname
+        if not tmpl.is_file():
+            print(f"rag-new-card: error: missing template {tmpl}", file=sys.stderr)
+            return 2
+        rendered[fname] = substitute(tmpl.read_text(encoding="utf-8"), mapping)
+
+    # Write under a try/except; roll back a partial card so a retry isn't blocked by the guard.
+    written: list[str] = []
+    try:
+        card_dir.mkdir(parents=True, exist_ok=False)
+        for fname, content in rendered.items():
+            (card_dir / fname).write_text(content, encoding="utf-8")
+            written.append(fname)
+        if not args.backlog:
+            artifacts = card_dir / "artifacts"
+            artifacts.mkdir(exist_ok=True)
+            (artifacts / ".gitkeep").write_text("", encoding="utf-8")
+            written.append("artifacts/")
+    except OSError as e:
+        shutil.rmtree(card_dir, ignore_errors=True)
+        print(f"rag-new-card: error: failed writing card (rolled back): {e}", file=sys.stderr)
+        return 1
+
+    print(f"Created {state} card: {card_dir}")
+    print("  files: " + ", ".join(written))
+    if args.backlog:
+        print("  (backlog card — trace.md/benchmarks.md/artifacts appear when activated)")
+        print(f"  activate later: mv '{card_dir}' '{root / 'issues' / 'active' / card_name}'")
+    else:
+        print("  next: fill out context.md, then /rag:trace as you investigate")
+    print("  note: trace.md is local working state — gitignored, never committed")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

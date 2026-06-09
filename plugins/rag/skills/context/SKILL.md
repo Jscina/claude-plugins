@@ -10,13 +10,16 @@ Assemble a focused context payload by pulling from both the active issue card an
 ## Workflow
 
 1. **Determine what to load.** Ask for:
-   - **Card ID** — which active card to pull from (or an issue description if no card exists yet)
+   - **Card ID** — which card to pull from: active, or a finished one in `done/` / `archive/` (or an issue description if no card exists yet)
    - **Relevant system sections** — which `system/` subfolders to include: `architecture`, `schemas`, `services`, `known-behaviors` (default: all that have content)
    - **Token budget** — `compact` or `full` (default: `compact`)
 
-2. **Read the card files.** From `issues/active/CARD-XXXXX/`:
+2. **Read the card files.** Locate the card under `issues/active/CARD-XXXXX/`; if not there, look in
+   `issues/done/`, then `issues/archive/`, then legacy `issues/closed/`. From the card directory:
    - `context.md` — full content
    - `trace.md` — full content in `full` mode; last 10 entries only in `compact` mode
+     *(archived cards keep `trace.md` locally even though it isn't committed; if the card was pulled
+     from the committed surface its `trace.md` may be absent — note that rather than failing)*
    - `benchmarks.md` — full content
 
 3. **Read system files.** For each selected `system/` subfolder, read all `.md` files within it.

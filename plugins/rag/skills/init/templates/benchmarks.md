@@ -16,6 +16,7 @@ Examples:
 - [ ] A target file in `system/` has been identified
 - [ ] The finding has been written in `system/` format (context-focused, not issue-specific)
 - [ ] `benchmarks.md` in the card has been updated to `PROMOTED`
+- [ ] `trace.md` swept for un-tagged benchmark-worthy findings (none stranded)
 
 ## Tags
 
@@ -48,3 +49,7 @@ status: pending | promoted | rejected
 5. Write or append to the target `system/` file
 6. Mark `benchmarks.md` entry as `BENCHMARK — promoted` with file path and date
 7. Commit `system/` to Git
+
+> **Sweep at close.** Before filing a card under `done/` or `archive/`, re-read its `trace.md` and run
+> steps 3–6 on any benchmark-worthy finding that was never tagged. Findings logged only in the trace
+> must not be lost. The sweep only reads the trace.
