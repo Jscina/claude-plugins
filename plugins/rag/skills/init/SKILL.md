@@ -14,20 +14,25 @@ Scaffold the complete `rag-memory/` directory structure on the local filesystem,
 2. **Create the full directory tree.** Build all folders:
    ```
    rag-memory/
+   ├── .gitignore           ← commit boundary (from templates/corpus-gitignore)
    ├── system/
    │   ├── architecture/
    │   ├── schemas/
    │   ├── services/
    │   └── known-behaviors/
    └── issues/
-       ├── active/
-       ├── closed/
-       └── archive/
+       ├── backlog/         ← planned, not yet active (local, gitignored)
+       ├── active/          ← under investigation (local, gitignored)
+       ├── done/            ← finished locally, kept per-dev (local, gitignored)
+       └── archive/         ← durable, committed shared record
    ```
+   > `closed/` is **legacy** — not created for new corpora. If an existing corpus has it,
+   > leave it in place (read-only); new work uses `done/` (local) or `archive/` (committed).
 
 3. **Seed all instruction files from templates.** Read each template from this skill's `templates/` directory and write them to the correct locations:
    - `rag-memory/README.md` ← from `templates/root-readme.md`
    - `rag-memory/BENCHMARKS.md` ← from `templates/benchmarks.md`
+   - `rag-memory/.gitignore` ← from `templates/corpus-gitignore` (the commit boundary)
    - `rag-memory/system/README.md` ← from `templates/system-readme.md`
    - `rag-memory/issues/README.md` ← from `templates/issues-readme.md`
 
@@ -38,6 +43,7 @@ Scaffold the complete `rag-memory/` directory structure on the local filesystem,
 
 ## Key details
 
-- All directories must be created even if empty (use `.gitkeep` files in empty leaf directories so Git tracks them)
-- Never overwrite an existing `rag-memory/` directory — check first and warn the user
+- All directories must be created even if empty. For **committed** empty dirs (`system/*`, `issues/archive/`) add a `.gitkeep` so Git tracks them. The gitignored local dirs (`issues/{backlog,active,done}`) don't need one.
+- Never overwrite an existing `rag-memory/` directory or its `.gitignore` — check first and warn the user
 - Template files are in this skill's `templates/` folder — read them at runtime, don't hard-code content
+- The generated `.gitignore` is the commit boundary: local working state (`backlog/`, `active/`, `done/`, and every `trace.md`) stays local; `system/` and `issues/archive/` are the committed surface

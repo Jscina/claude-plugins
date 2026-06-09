@@ -62,10 +62,10 @@ Most RAG interactions follow a predictable lifecycle. Use this to figure out whe
 │                   CLOSING A CARD                         │
 │                                                          │
 │  "this issue is resolved" / "closing this card"          │
-│  ──► Check benchmarks.md for any pending entries         │
-│  ──► Prompt user to promote or reject each one           │
-│  ──► Move card from issues/active/ to issues/closed/     │
-│  ──► Remind user to commit system/ if anything promoted  │
+│  ──► Sweep trace.md for missed benchmark moments        │
+│  ──► Review benchmarks.md → promote or reject           │
+│  ──► Ask destination: done/ (local) or archive/ (commit) │
+│  ──► Move there; archive commits, done stays local      │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -82,6 +82,7 @@ When the user sends a message, determine which sub-skill to invoke:
    - **Logging language** ("found that", "ruled out", "confirmed", "disproved", "suspect", "next step is", "log this") → `/rag:trace`
    - **Promotion language** ("benchmark moment", "promote", "this is durable", "add to system knowledge", "belongs in known-behaviors/services/schemas") → `/rag:promote`
    - **Context/session language** ("build context", "assemble context", "what do we know about", "starting a new session", "load the card", "get me up to speed") → `/rag:context`
+   - **Planning language** ("not ready to start", "park this for later", "backlog this", "planned but not active") → create a card in `issues/backlog/` (local, `context.md` only). Activate later by moving it to `issues/active/`.
    - **Closing language** ("resolved", "closing this card", "done with this issue", "wrap up") → Card closing workflow (see below)
    - **General questions** ("how does RAG work", "what's a benchmark moment", "explain the system") → Answer from `references/structure.md` directly
 
@@ -94,12 +95,34 @@ When the user sends a message, determine which sub-skill to invoke:
 
 This isn't a separate sub-skill because it's a short orchestration sequence:
 
-1. Read `issues/active/CARD-XXXXX/benchmarks.md`
-2. Check for any entries with `status: pending`
-3. For each pending entry, ask the user: promote or reject?
-4. Run `/rag:promote` for each promotion, or update status to `rejected`
-5. Move the entire `CARD-XXXXX/` directory from `issues/active/` to `issues/closed/`
-6. If anything was promoted, remind the user to commit `system/` to Git
+1. **Sweep the trace for missed benchmarks.** Read `issues/active/CARD-XXXXX/trace.md` and look for
+   `type: finding` (or otherwise confirmed) entries that reveal durable system behavior but were
+   never tagged in `benchmarks.md`. Propose each as a candidate `pending` benchmark. The sweep only
+   **reads** the trace — it never modifies it. (Same trace read as the Skill-discovery pass below;
+   do both at once.)
+2. Read `issues/active/CARD-XXXXX/benchmarks.md` and collect all `status: pending` entries (including
+   any just added by the sweep).
+3. For each pending entry, ask the user: promote or reject? Run `/rag:promote` for each promotion, or
+   update its status to `rejected`.
+4. **Ask the destination:** `done/` (finished locally, **not committed**) or `archive/` (durable,
+   **committed** shared record).
+5. Move the entire `CARD-XXXXX/` directory from `issues/active/` to the chosen `issues/done/` or
+   `issues/archive/`.
+6. If **archived**, remind the user to commit the card's `context.md` + `benchmarks.md` + `artifacts/`
+   (its `trace.md` is gitignored) plus `system/` if anything was promoted. If **done**, nothing is committed.
+
+## Skill-discovery pass (mining traces)
+
+Trace logs are the richest signal for *tooling* opportunities, not just investigation history.
+Whenever you review a trace — during `/rag:context`, a close ceremony, or ad hoc — also watch for:
+
+- **Repeated multi-step manual sequences** → candidate for a script or a new skill.
+- **The same class of mistake or dead-end recurring** across entries or cards → candidate guardrail.
+- **A workflow that maps cleanly onto a known, effective skill** → adopt it.
+
+Capture each candidate (adopt-existing vs. build-custom) with the recurring pattern it addresses; see
+`features/skill-opportunities.md` for the capture format. This pass shares the same trace read as the
+benchmark sweep above — do them together.
 
 ## Handling ambiguity
 
@@ -113,11 +136,12 @@ If the user's intent doesn't clearly map to one sub-skill:
 If the user asks "what can I do with RAG" or "how do I use this", give them this:
 
 - **First time?** → `/rag:init`
+- **Planning ahead?** → "backlog this" (parks a `context.md`-only card in `issues/backlog/`, local)
 - **New issue?** → `/rag:card` (then provide ticket ID)
 - **During investigation** → `/rag:trace` for findings, rule-outs, hypotheses, next steps
 - **Durable insight?** → `/rag:promote`
 - **New AI session?** → `/rag:context`
-- **Done?** → "close card [card ID]" (orchestrator handles the wrap-up sequence)
+- **Done?** → "close card [card ID]" (orchestrator sweeps the trace, reviews benchmarks, then files it under `done/` or `archive/`)
 
 ## Note on actual retrieval
 

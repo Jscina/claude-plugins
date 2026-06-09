@@ -11,6 +11,11 @@ Append a structured entry to an active card's `trace.md`. This skill is the prim
 
 This is **append-only**. The skill must never overwrite, truncate, or reorder existing `trace.md` content. Every operation is a file append.
 
+`trace.md` is **local working state and is never committed** — the generated `rag-memory/.gitignore`
+ignores `**/trace.md` everywhere, including inside the committed `issues/archive/`. The durable,
+committed value of a card is `context.md` + `benchmarks.md` + `artifacts/`. Log freely; the trace
+stays on your machine.
+
 ## Workflow
 
 1. **Determine the card.** Ask for or infer the card ID from context. Look for the card directory at `rag-memory/issues/active/CARD-XXXXX/`. If it doesn't exist, warn the user.

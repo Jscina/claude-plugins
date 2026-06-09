@@ -10,6 +10,7 @@ This document defines the layout, instruction file locations, and benchmark prom
 rag-memory/
 ├── README.md
 ├── BENCHMARKS.md
+├── .gitignore             ← Commit boundary: local working state vs. committed record
 ├── system/
 │   ├── README.md
 │   ├── architecture/      ← Repo maps, integration topology, deployment layout
@@ -18,10 +19,14 @@ rag-memory/
 │   └── known-behaviors/   ← Promoted findings from issues — confirmed system behaviors
 └── issues/
     ├── README.md
-    ├── active/            ← Current investigation cards (CARD-XXXXX/)
-    ├── closed/            ← Recently closed (rolling 2 quarters)
-    └── archive/           ← Older issues, low priority
+    ├── backlog/           ← Planned, not yet active (local, gitignored)
+    ├── active/            ← Current investigation cards CARD-XXXXX/ (local, gitignored)
+    ├── done/              ← Finished locally, kept per-dev (local, gitignored)
+    └── archive/           ← Durable, committed shared record (trace.md excluded)
 ```
+
+> **Legacy:** `issues/closed/` is superseded by `done/` (local) and `archive/` (committed).
+> Existing `closed/` cards remain readable; new work uses the two terminal states above.
 
 ## Active Card Structure
 
@@ -44,6 +49,10 @@ A **benchmark moment** is when analysis yields a finding that teaches something 
 6. Mark benchmarks.md entry as `BENCHMARK — promoted` with file path and date
 7. Commit system/ to Git
 
+> **Sweep at close:** during a card's close ceremony, re-read `trace.md` and apply steps 3–6 to any
+> benchmark-worthy `finding` that was never tagged — so findings logged only in the trace still get
+> promoted. The sweep reads the trace; it never modifies it.
+
 ## Benchmark Tags
 
 - `BENCHMARK — pending` → confirmed, not yet promoted
@@ -57,6 +66,7 @@ A **benchmark moment** is when analysis yields a finding that teaches something 
 - [ ] A target file in system/ has been identified
 - [ ] The finding has been written in system/ format (context-focused, not issue-specific)
 - [ ] benchmarks.md in the card has been updated to PROMOTED
+- [ ] `trace.md` swept for un-tagged benchmark-worthy findings (none stranded)
 
 ## System File Format
 
@@ -82,8 +92,11 @@ type: [finding | ruled-out | hypothesis | next-step]
 
 | Layer | Location | Retention | Git-versioned? |
 |---|---|---|---|
-| System knowledge | `system/` | Permanent, updated | Yes |
-| Active issues | `issues/active/` | Duration of card | No (local) |
-| Closed issues | `issues/closed/` | Rolling 2 quarters | Optional |
-| Archived issues | `issues/archive/` | Indefinite, low priority | Optional |
-| Promoted benchmarks | `system/known-behaviors/` | Permanent | Yes |
+| System knowledge | `system/` | Permanent, updated | **Yes** |
+| Backlog (planned) | `issues/backlog/` | Until activated or dropped | **No — local** |
+| Active issues | `issues/active/` | Duration of card | **No — local** |
+| Done (finished locally) | `issues/done/` | Per-dev preference | **No — local** |
+| Archived issues | `issues/archive/` | Indefinite, durable | **Yes — except `trace.md`** |
+| Trace logs | `**/trace.md` | Local working state | **Never committed** |
+| Promoted benchmarks | `system/known-behaviors/` | Permanent | **Yes** |
+| Closed (legacy) | `issues/closed/` | Superseded by done/archive | Pre-existing only |

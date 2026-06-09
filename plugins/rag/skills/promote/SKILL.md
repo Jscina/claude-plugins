@@ -13,6 +13,24 @@ Take a confirmed finding from an active issue card and promote it to the appropr
 - The finding must apply **beyond this specific card** — it teaches something about how the system works in general
 - An active card must exist with the finding logged in `trace.md`
 
+## Trace sweep — surface missed benchmarks first
+
+Before promoting (and always during a card's close ceremony), **sweep the trace** so good findings
+don't get stranded. A finding only becomes a promotion candidate if it was tagged into
+`benchmarks.md`; benchmark-worthy findings logged only in `trace.md` would otherwise be missed entirely.
+
+1. Read the card's `trace.md`.
+2. Scan for `type: finding` entries (and confirmed results in other entry types) that reveal something
+   **durable** about the system — behavior, schema, or service interaction — i.e. they pass the
+   "applies beyond this card" test.
+3. Cross-check each against `benchmarks.md`: if its substance isn't already represented there, propose
+   it as a new candidate with a recommended `system/` target.
+4. Present the candidates; for each, the user chooses promote (run the workflow below) or reject
+   (record as `BENCHMARK — rejected`).
+
+This sweep is **read-only on `trace.md`** — never modify the trace. It only adds candidate entries to
+`benchmarks.md` and promotes the approved ones.
+
 ## Workflow
 
 1. **Identify the finding.** Ask for or infer:
