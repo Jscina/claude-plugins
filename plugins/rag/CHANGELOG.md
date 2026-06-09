@@ -3,6 +3,14 @@
 All notable changes to the `rag` plugin are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com); the plugin uses semantic versioning.
 
+## [0.3.0] - 2026-06-09
+
+### Added
+- **Bundled `batman` investigative agent** (`agents/batman.md`). Installing `rag` now also delivers
+  the investigator that drives the memory system: it opens a card before touching anything, logs
+  every finding to the trace, promotes durable findings to `system/`, and runs the close ceremony.
+  Claude Code namespaces plugin agents as `plugin:agent`, so it is invoked as `@rag:batman`.
+
 ## [0.2.0] - 2026-06-08
 
 ### Added

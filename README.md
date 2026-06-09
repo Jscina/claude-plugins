@@ -6,7 +6,7 @@ A personal [Claude Code](https://claude.com/claude-code) plugin marketplace by [
 
 | Plugin | Version | Description |
 |---|---|---|
-| [`rag`](./plugins/rag/) | `0.2.0` | Two-layer RAG memory system — System Knowledge (durable, versioned) and Issue Memory (active cards), with a firm commit boundary and a `backlog`/`active`/`done`/`archive` lifecycle. Skills: `/rag:init`, `/rag:migrate`, `/rag:card`, `/rag:trace`, `/rag:promote`, `/rag:context`, `/rag:memory`. |
+| [`rag`](./plugins/rag/) | `0.3.0` | Two-layer RAG memory system — System Knowledge (durable, versioned) and Issue Memory (active cards), with a firm commit boundary and a `backlog`/`active`/`done`/`archive` lifecycle. Skills: `/rag:init`, `/rag:migrate`, `/rag:card`, `/rag:trace`, `/rag:promote`, `/rag:context`, `/rag:memory`. Bundles the `@rag:batman` investigative agent. |
 | [`decision-engine`](./plugins/decision-engine/) | `0.1.3` | Personal goal-indexed decision engine. Treats goals as first-class indexed objects, evaluates new inputs against them via reusable workflows (e.g. `house_analyzer`), and persists runs for longitudinal analysis. Ships a session-start agent (`@decision-engineer`), a reactive skill, and an MCP server for state management. |
 
 ## Install
@@ -79,7 +79,9 @@ After install, the `/rag:*` skills are available in any Claude Code session. Typ
 /rag:memory      → orchestrator; routes to the right skill given current state
 ```
 
-See [`plugins/rag/`](./plugins/rag/) for skill source and [`plugins/rag/features/plugin-support.md`](./plugins/rag/features/plugin-support.md) for the full reference on Claude Code's plugin host model that this plugin was built against.
+The plugin also bundles an investigative agent — invoke **`@rag:batman`** to drive the whole workflow end to end: it opens a card before acting, logs findings to the trace, promotes durable truths to `system/`, and runs the close ceremony. Evidence over guesswork.
+
+See [`plugins/rag/`](./plugins/rag/) for skill/agent source and [`plugins/rag/features/plugin-support.md`](./plugins/rag/features/plugin-support.md) for the full reference on Claude Code's plugin host model that this plugin was built against.
 
 ## Usage — `decision-engine`
 
