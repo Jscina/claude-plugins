@@ -14,6 +14,7 @@ These five sibling skills (also under the `rag` plugin) handle individual operat
 | Skill | Slash | Purpose | When to route |
 |---|---|---|---|
 | `init` | `/rag:init` | Scaffold the `rag-memory/` directory from scratch | User wants to set up the system for the first time |
+| `migrate` | `/rag:migrate` | Upgrade an existing corpus to the current schema | A corpus was built by an older plugin version (missing `.gitignore`/`backlog`/`done`, or `trace.md` being committed) |
 | `card` | `/rag:card` | Create a new `CARD-XXXXX/` for an issue | User is starting work on a ticket, bug, or issue |
 | `trace` | `/rag:trace` | Append an entry to a card's `trace.md` | User wants to log a finding, rule-out, hypothesis, or next step |
 | `promote` | `/rag:promote` | Promote a finding to `system/` | User has a confirmed durable finding to preserve |
@@ -73,7 +74,7 @@ Most RAG interactions follow a predictable lifecycle. Use this to figure out whe
 
 When the user sends a message, determine which sub-skill to invoke:
 
-1. **Check if rag-memory/ exists.** If the user references RAG but no directory is found, route to `/rag:init` first. Ask where they want it created.
+1. **Check if rag-memory/ exists.** If the user references RAG but no directory is found, route to `/rag:init` first. Ask where they want it created. **If it exists, check it's current** — run `rag-migrate --check` (or look for `.rag-meta.json` with the current `schema`, plus `issues/backlog/`, `issues/done/`, and `.gitignore`). If it's from an older plugin version, route to `/rag:migrate` before other operations; otherwise the commit boundary won't apply and `trace.md` may be getting committed.
 
 2. **Match intent to sub-skill.** Use these patterns:
 
@@ -136,6 +137,7 @@ If the user's intent doesn't clearly map to one sub-skill:
 If the user asks "what can I do with RAG" or "how do I use this", give them this:
 
 - **First time?** → `/rag:init`
+- **Upgraded the plugin?** → `/rag:migrate` (gap-fills an older corpus: boundary, `backlog/`+`done/`, docs)
 - **Planning ahead?** → "backlog this" (parks a `context.md`-only card in `issues/backlog/`, local)
 - **New issue?** → `/rag:card` (then provide ticket ID)
 - **During investigation** → `/rag:trace` for findings, rule-outs, hypotheses, next steps

@@ -14,6 +14,10 @@ All notable changes to the `rag` plugin are documented here. Format follows
   which enforces the commit boundary.
 - **Skill-discovery convention** (`features/skill-opportunities.md`) — treat trace review as a pass
   that surfaces custom-skill opportunities and known skills worth adopting.
+- **`bin/rag-migrate` + `/rag:migrate`** — idempotent, dry-run-by-default upgrade path for a corpus
+  created by an older plugin version: creates `backlog/`+`done/`, writes the `.gitignore` boundary,
+  untracks already-committed `trace.md`/local-state via `git rm --cached`, hash-gates doc refreshes,
+  and stamps `.rag-meta.json`. `/rag:init` now writes `.rag-meta.json` and routes existing corpora to migrate.
 
 ### Changed
 - **Lifecycle is now two terminal states:** `active → done` (local, not committed) **or**

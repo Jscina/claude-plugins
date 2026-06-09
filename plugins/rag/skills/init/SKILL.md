@@ -33,6 +33,7 @@ Scaffold the complete `rag-memory/` directory structure on the local filesystem,
    - `rag-memory/README.md` ← from `templates/root-readme.md`
    - `rag-memory/BENCHMARKS.md` ← from `templates/benchmarks.md`
    - `rag-memory/.gitignore` ← from `templates/corpus-gitignore` (the commit boundary)
+   - `rag-memory/.rag-meta.json` ← from `templates/rag-meta.json` (schema version stamp)
    - `rag-memory/system/README.md` ← from `templates/system-readme.md`
    - `rag-memory/issues/README.md` ← from `templates/issues-readme.md`
 
@@ -44,6 +45,6 @@ Scaffold the complete `rag-memory/` directory structure on the local filesystem,
 ## Key details
 
 - All directories must be created even if empty. For **committed** empty dirs (`system/*`, `issues/archive/`) add a `.gitkeep` so Git tracks them. The gitignored local dirs (`issues/{backlog,active,done}`) don't need one.
-- Never overwrite an existing `rag-memory/` directory or its `.gitignore` — check first and warn the user
+- Never overwrite an existing `rag-memory/` directory or its `.gitignore`. If one already exists, don't re-scaffold — run `rag-migrate --check`; if it reports migration is needed (a corpus from an older plugin version), route the user to `/rag:migrate`
 - Template files are in this skill's `templates/` folder — read them at runtime, don't hard-code content
 - The generated `.gitignore` is the commit boundary: local working state (`backlog/`, `active/`, `done/`, and every `trace.md`) stays local; `system/` and `issues/archive/` are the committed surface
