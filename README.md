@@ -6,7 +6,7 @@ A personal [Claude Code](https://claude.com/claude-code) plugin marketplace by [
 
 | Plugin | Version | Description |
 |---|---|---|
-| [`rag`](./plugins/rag/) | `0.1.2` | Two-layer RAG memory system — System Knowledge (durable, versioned) and Issue Memory (active cards). Skills: `/rag:init`, `/rag:card`, `/rag:trace`, `/rag:promote`, `/rag:context`, `/rag:memory`. |
+| [`rag`](./plugins/rag/) | `0.2.0` | Two-layer RAG memory system — System Knowledge (durable, versioned) and Issue Memory (active cards), with a firm commit boundary and a `backlog`/`active`/`done`/`archive` lifecycle. Skills: `/rag:init`, `/rag:migrate`, `/rag:card`, `/rag:trace`, `/rag:promote`, `/rag:context`, `/rag:memory`. |
 | [`decision-engine`](./plugins/decision-engine/) | `0.1.3` | Personal goal-indexed decision engine. Treats goals as first-class indexed objects, evaluates new inputs against them via reusable workflows (e.g. `house_analyzer`), and persists runs for longitudinal analysis. Ships a session-start agent (`@decision-engineer`), a reactive skill, and an MCP server for state management. |
 
 ## Install
@@ -37,6 +37,34 @@ If the marketplace was added before a plugin was published, refresh the local ca
 ```bash
 claude plugin marketplace update nicholas1513-claude-plugins
 ```
+
+## Updating
+
+Third-party marketplaces don't auto-update, so upgrades are explicit. Because each plugin is pinned to a git tag, **refresh the marketplace cache first**, then update the plugin — otherwise `update` re-resolves against the stale cached ref and reports no change:
+
+```bash
+claude plugin marketplace update nicholas1513-claude-plugins   # pull the latest marketplace.json (new tag refs)
+claude plugin update rag                                       # fetch the plugin at its new tag
+```
+
+Or do both from a session via the `/plugin` menu. After updating, run `/reload-plugins` (or restart) and confirm the version:
+
+```bash
+claude plugin list        # rag should show the new version
+```
+
+### Migrating a `rag-memory/` corpus after a `rag` upgrade
+
+Updating the plugin does not touch your data. When a release changes the on-disk schema (e.g. v0.2.0's commit boundary and `backlog`/`done` lifecycle), an existing corpus must be brought up to date. With the new version installed, the `/rag:memory` orchestrator detects an out-of-date corpus and routes you to `/rag:migrate`; or run the bundled migrator directly:
+
+```bash
+rag-migrate --check     # exits 10 if a migration is needed
+rag-migrate             # dry-run: prints the plan, changes nothing
+rag-migrate --apply     # brings the corpus up to the current schema
+git add -A && git commit -m "chore(rag): migrate corpus to the current schema"
+```
+
+`rag-migrate` is idempotent and never deletes cards or rewrites `system/` content. Corpora created with the current version need no migration.
 
 ## Usage — `rag`
 
@@ -89,7 +117,7 @@ The marketplace pins each plugin to its tag using a `git-subdir` source, which s
     "source": "git-subdir",
     "url": "https://github.com/nicholas1513/claude-plugins.git",
     "path": "plugins/rag",
-    "ref": "rag--v0.1.2"
+    "ref": "rag--v0.2.0"
   }
 }
 ```
