@@ -13,7 +13,11 @@ Usage:
 Behavior:
   * Active cards (default) get context.md + trace.md + benchmarks.md + artifacts/.gitkeep.
   * Backlog cards (--backlog) get context.md only; the rest appear when the card is activated.
+  * Card IDs are sanitized to a single safe path component (no separators, no FS-hostile chars)
+    with a canonical CARD- prefix.
   * Never overwrites an existing card directory (exits non-zero).
+  * Card creation is atomic-ish: templates are validated and rendered before any directory is
+    created, and a partially-written card is rolled back on failure (so a retry isn't blocked).
   * trace.md is local working state and is gitignored by the corpus .gitignore —
     created here, but never committed.
 
@@ -24,20 +28,33 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import os
+import re
+import shutil
 import sys
 from pathlib import Path
 
 ACTIVE_FILES = ("context.md", "trace.md", "benchmarks.md")
+SOURCES = ("ado", "qa", "prod", "other")
+
+# Path separators + characters illegal on Windows/exFAT + control chars.
+_UNSAFE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
 
 def normalize_card_name(raw: str) -> str:
-    """Strip '#', collapse whitespace to hyphens, ensure a CARD- prefix."""
-    name = raw.replace("#", "").strip()
-    name = "-".join(name.split())
+    """Reduce an arbitrary id to one safe path component with a canonical CARD- prefix.
+
+    Strips '#', neutralizes path separators and FS-hostile characters, drops pure-dot
+    segments (so '..' can't yield traversal), collapses whitespace/hyphens.
+    """
+    cleaned = _UNSAFE.sub(" ", raw.replace("#", ""))
+    parts = [p for p in cleaned.split() if p.strip(".")]  # drop '.', '..', '...' segments
+    name = re.sub(r"-{2,}", "-", "-".join(parts)).strip("-.")
     if not name:
-        raise ValueError("card id is empty after normalization")
-    if not name.upper().startswith("CARD-"):
-        name = "CARD-" + name
+        raise ValueError(f"card id is empty after sanitization: {raw!r}")
+    # Canonical CARD- prefix (uppercase), preserving the rest of the id as given.
+    name = "CARD-" + (name[5:] if name.upper().startswith("CARD-") else name)
+    if "/" in name or "\\" in name or os.sep in name:  # defensive: must be one component
+        raise ValueError(f"invalid card id after sanitization: {name!r}")
     return name
 
 
@@ -93,7 +110,7 @@ def main(argv: list[str] | None = None) -> int:
         description="Scaffold a new RAG investigation card from templates.",
     )
     parser.add_argument("--id", required=True, help="Card ID, e.g. ADO-40576 (CARD- prefix added if absent)")
-    parser.add_argument("--source", default="other", help="Issue source: ado | qa | prod | other")
+    parser.add_argument("--source", default="other", choices=SOURCES, help="Issue source")
     parser.add_argument("--symptom", default="", help="One-line symptom (required for active cards)")
     parser.add_argument("--backlog", action="store_true", help="Create in issues/backlog/ (context.md only)")
     parser.add_argument("--root", default=None, help="Path to the rag-memory corpus (default: auto-detect)")
@@ -128,22 +145,33 @@ def main(argv: list[str] | None = None) -> int:
         "{{SYMPTOM}}": args.symptom,
     }
 
+    # Validate + render ALL templates before touching the filesystem, so a missing
+    # template fails before any directory is created.
     files = ("context.md",) if args.backlog else ACTIVE_FILES
-    card_dir.mkdir(parents=True, exist_ok=False)
-    written: list[str] = []
+    rendered: dict[str, str] = {}
     for fname in files:
         tmpl = templates / fname
         if not tmpl.is_file():
             print(f"rag-new-card: error: missing template {tmpl}", file=sys.stderr)
             return 2
-        (card_dir / fname).write_text(substitute(tmpl.read_text(encoding="utf-8"), mapping), encoding="utf-8")
-        written.append(fname)
+        rendered[fname] = substitute(tmpl.read_text(encoding="utf-8"), mapping)
 
-    if not args.backlog:
-        artifacts = card_dir / "artifacts"
-        artifacts.mkdir(exist_ok=True)
-        (artifacts / ".gitkeep").write_text("", encoding="utf-8")
-        written.append("artifacts/")
+    # Write under a try/except; roll back a partial card so a retry isn't blocked by the guard.
+    written: list[str] = []
+    try:
+        card_dir.mkdir(parents=True, exist_ok=False)
+        for fname, content in rendered.items():
+            (card_dir / fname).write_text(content, encoding="utf-8")
+            written.append(fname)
+        if not args.backlog:
+            artifacts = card_dir / "artifacts"
+            artifacts.mkdir(exist_ok=True)
+            (artifacts / ".gitkeep").write_text("", encoding="utf-8")
+            written.append("artifacts/")
+    except OSError as e:
+        shutil.rmtree(card_dir, ignore_errors=True)
+        print(f"rag-new-card: error: failed writing card (rolled back): {e}", file=sys.stderr)
+        return 1
 
     print(f"Created {state} card: {card_dir}")
     print("  files: " + ", ".join(written))

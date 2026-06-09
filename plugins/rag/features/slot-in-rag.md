@@ -1,6 +1,10 @@
 # Slot-In RAG Layer — Activation Plan
 
-This plan describes how to add genuine retrieval-augmented generation on top of the existing `system/` and `issues/closed|archive/` corpora without restructuring anything that's already in place. Today the plugin performs file assembly; this plan upgrades it to do similarity-based retrieval.
+This plan describes how to add genuine retrieval-augmented generation on top of the existing `system/` and `issues/archive/` corpora without restructuring anything that's already in place. Today the plugin performs file assembly; this plan upgrades it to do similarity-based retrieval.
+
+> **Note (v0.2.0 lifecycle):** this plan predates the done/archive split. Where it says
+> `issues/closed/`, read the committed record — now `issues/archive/` (plus any legacy
+> `issues/closed/`). The retrieval corpus is `system/` + `issues/archive/`.
 
 ## When to activate
 

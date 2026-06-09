@@ -62,10 +62,10 @@ Most RAG interactions follow a predictable lifecycle. Use this to figure out whe
 │                   CLOSING A CARD                         │
 │                                                          │
 │  "this issue is resolved" / "closing this card"          │
-│  ──► Sweep trace.md for missed benchmark moments        │
-│  ──► Review benchmarks.md → promote or reject           │
+│  ──► Sweep trace.md for missed benchmark moments         │
+│  ──► Review benchmarks.md → promote or reject            │
 │  ──► Ask destination: done/ (local) or archive/ (commit) │
-│  ──► Move there; archive commits, done stays local      │
+│  ──► Move there; archive commits, done stays local       │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -147,6 +147,6 @@ If the user asks "what can I do with RAG" or "how do I use this", give them this
 
 This plugin currently performs **assembly**, not retrieval — `/rag:context` loads files by explicit card ID and folder selection. The "RAG" name reflects the eventual destination, not the current mechanism.
 
-A semantic-retrieval layer (embeddings + vector store) is planned for activation once the corpus crosses ~50 findings/closed cards, at which point browsing-by-filename stops scaling. The plan lives in `features/slot-in-rag.md` at the plugin root. Empty `bin/` and `.mcp.json` placeholders are already reserved for the indexer and search MCP server.
+A semantic-retrieval layer (embeddings + vector store) is planned for activation once the corpus crosses ~50 findings/archived cards, at which point browsing-by-filename stops scaling. The plan lives in `features/slot-in-rag.md` at the plugin root. The `.mcp.json` placeholder is already reserved for the search MCP server; the indexer will live in `bin/` alongside the existing `rag-new-card`.
 
 If the user asks about semantic search, similarity-based lookup, or "find me prior cases like this," tell them retrieval isn't wired up yet and point them at `features/slot-in-rag.md` for the activation plan.
