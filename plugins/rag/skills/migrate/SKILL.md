@@ -39,7 +39,7 @@ and dry-run by default**, so it is safe to run anytime.
 - **Writes** `.gitignore` only if absent; if one exists but lacks `**/trace.md`, it warns instead of editing yours.
 - **Refreshes** `README.md`, `issues/README.md`, `BENCHMARKS.md`, `system/README.md` **only if they
   still match a known old template** (hash check). If you edited them, it leaves them and warns.
-- **Brings `system/` knowledge docs to the current doc schema** (schema 3+). Docs are
+- **Brings `system/` knowledge docs to the current schema generation** (schema 3+). Docs are
   **self-describing** via a `plugin_schema` field in their frontmatter, so the migration is
   forward-only and idempotent:
   - a doc with **no frontmatter** is bootstrapped — a header (`title`/`domain`/`source_cards`/

@@ -103,7 +103,7 @@ tags: []
 | `source_cards` | Union of every card that contributed a section to this file. |
 | `created` / `updated` | Earliest / latest contribution dates. |
 | `status` | `active`, or `superseded` when the doc is retired. |
-| `plugin_schema` | The doc-format version this header conforms to. Makes the doc **self-describing**: `rag-migrate` reads it to decide whether the doc needs upgrading — no content guessing, no per-version hash tables, no replaying intermediate schemas. |
+| `plugin_schema` | The corpus generation this doc was last aligned to (a monotonic integer, the same one stamped in `.rag-meta.json`). Makes the doc **self-describing**: `rag-migrate` reads it to decide whether the doc needs upgrading — no content guessing, no per-version hash tables, no replaying intermediate schemas. |
 | `tags` | Free-form; a corpus may use these for its own finer-grained taxonomy. |
 
 > **Self-describing migration.** `rag-migrate` brings docs to the current schema by reading each doc's

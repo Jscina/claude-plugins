@@ -13,7 +13,7 @@ What it does (only what's needed):
     files are kept on disk)
   * refreshes generated docs (README.md, issues/README.md, BENCHMARKS.md, system/README.md)
     ONLY when they still match a known old template (never clobbers your edits)
-  * brings system/ knowledge docs to the current doc schema (plugin_schema 3+). Docs self-describe
+  * brings system/ knowledge docs to the current schema generation (plugin_schema 3+). Docs self-describe
     via a `plugin_schema` field in their frontmatter, so the migration is forward-only and idempotent:
       - a doc with no frontmatter is bootstrapped -- title/domain/source_cards/created/updated derived
         from the existing **Source** labels and the body, then stamped plugin_schema
@@ -205,31 +205,39 @@ def _ensure_plugin_schema(text: str, target: int) -> str | None:
     if close is None:
         return None  # malformed header; leave it alone
 
+    # Detect the field by KEY (any value) so a non-integer value can never produce a duplicate key.
     header = lines[1:close]
     cur = idx = None
     for j, ln in enumerate(header):
-        mm = PLUGIN_SCHEMA_RE.match(ln.strip())
-        if mm:
-            cur, idx = int(mm.group(1)), j
+        s = ln.strip()
+        if s.startswith("plugin_schema:"):
+            idx = j
+            mm = PLUGIN_SCHEMA_RE.match(s)
+            cur = int(mm.group(1)) if mm else None  # unparseable -> treat as needing replacement
             break
-    if cur is not None and cur >= target:
+    if idx is not None and cur is not None and cur >= target:
         return None  # already at/after target
 
     new_line = f"plugin_schema: {target}"
     if idx is not None:
-        header[idx] = new_line
+        header[idx] = new_line  # replace in place (handles stale int OR malformed value)
     else:
-        insert_at = len(header)
+        # Insert just after `status:`, else just before `tags:`, else at the end of the header.
+        status_idx = tags_idx = None
         for j, ln in enumerate(header):
-            if ln.strip().startswith("status:"):
-                insert_at = j + 1
-                break
+            s = ln.strip()
+            if s.startswith("status:") and status_idx is None:
+                status_idx = j
+            elif s.startswith("tags:") and tags_idx is None:
+                tags_idx = j
+        insert_at = (status_idx + 1) if status_idx is not None else (
+            tags_idx if tags_idx is not None else len(header))
         header.insert(insert_at, new_line)
     return "\n".join(["---", *header, "---", *lines[close + 1:]])
 
 
 def migrate_doc(path: Path, base: Path, target: int):
-    """Bring one system/ doc to the current doc schema. Returns (label, new_text) or None.
+    """Bring one system/ doc to the current schema generation. Returns (label, new_text) or None.
 
     - No frontmatter   -> bootstrap a full header (derived from the body), stamped plugin_schema.
     - Has frontmatter  -> ensure plugin_schema is present and >= target (stamp/bump that line only).
@@ -286,7 +294,7 @@ def build_plan(root: Path, templates: Path, target_schema: int, meta_text: str):
             actions.append(("frontmatter", f"{label} {rel}", ("write", doc, new_text)))
 
     if read_schema(root) < target_schema:
-        actions.append(("meta", f"stamp {META_FILE} (schema {target_schema})",
+        actions.append(("meta", f"stamp {META_FILE} (plugin_schema {target_schema})",
                         ("write", root / META_FILE, meta_text)))
 
     return actions

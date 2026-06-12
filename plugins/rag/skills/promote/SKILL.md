@@ -82,8 +82,8 @@ This sweep is **read-only on `trace.md`** — never modify the trace. It only ad
    **Frontmatter fields** — `title` (mirrors the H1; double-quote it if it contains a colon or
    backtick), `domain` (the doc's subfolder path under `system/`; may be nested), `source_cards` (the
    union of every card that contributed a section), `created`/`updated` (earliest / latest contribution
-   dates), `status` (`active` or `superseded`), `plugin_schema` (the doc-format version this header
-   conforms to — set it to the corpus's current schema, `3`; `rag-migrate` reads it to know whether a
+   dates), `status` (`active` or `superseded`), `plugin_schema` (the corpus generation this doc was last
+   aligned to — set it to the corpus's current schema, `3`; `rag-migrate` reads it to know whether a
    doc needs upgrading, so it never has to guess from content), `tags` (free-form; a corpus may use
    these for its own finer-grained taxonomy).
 

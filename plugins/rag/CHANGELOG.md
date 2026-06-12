@@ -3,7 +3,7 @@
 All notable changes to the `rag` plugin are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com); the plugin uses semantic versioning.
 
-## [0.4.0] - 2026-06-11
+## [0.4.0] - 2026-06-12
 
 ### Added
 - **YAML frontmatter on `system/` knowledge docs** (corpus schema **2 → 3**). Each doc now opens with
@@ -11,8 +11,8 @@ All notable changes to the `rag` plugin are documented here. Format follows
   `plugin_schema`, `tags` — that the planned retrieval indexer and Obsidian properties can consume.
   Provenance is **hybrid**: the header aggregates it at the file level while each finding keeps its
   per-section `**Source**` line for finding-level attribution.
-- **Self-describing migration via `plugin_schema`.** Each doc records the doc-format version it
-  conforms to, so `rag-migrate` upgrades a corpus by reading each doc's `plugin_schema` and applying
+- **Self-describing migration via `plugin_schema`.** Each doc records the corpus generation it was
+  last aligned to, so `rag-migrate` upgrades a corpus by reading each doc's `plugin_schema` and applying
   only the forward transforms it lacks — forward-only and idempotent (a doc already at the current
   version is skipped). No per-version hash tables, no replaying intermediate schemas, no guessing from
   content.
