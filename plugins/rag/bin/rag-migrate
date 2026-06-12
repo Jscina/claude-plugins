@@ -11,8 +11,16 @@ What it does (only what's needed):
   * untracks git-tracked local-state files -- everything under issues/active|backlog|done
     and every trace.md (incl. archive/closed) -- via `git rm --cached` (--apply only,
     files are kept on disk)
-  * refreshes generated docs (README.md, issues/README.md, BENCHMARKS.md) ONLY when they
-    still match a known old template (never clobbers your edits)
+  * refreshes generated docs (README.md, issues/README.md, BENCHMARKS.md, system/README.md)
+    ONLY when they still match a known old template (never clobbers your edits)
+  * brings system/ knowledge docs to the current schema generation (plugin_schema 3+). Docs self-describe
+    via a `plugin_schema` field in their frontmatter, so the migration is forward-only and idempotent:
+      - a doc with no frontmatter is bootstrapped -- title/domain/source_cards/created/updated derived
+        from the existing **Source** labels and the body, then stamped plugin_schema
+      - a doc that already has frontmatter only gets its plugin_schema stamped/bumped to current
+      - a doc already at the current plugin_schema is skipped
+    Only the header is written; the doc body is never touched. Scans every subfolder of system/
+    (nesting allowed); README.md and files directly under system/ are excluded.
   * stamps .rag-meta.json with the current schema
 
 Usage:
@@ -28,6 +36,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -51,7 +60,18 @@ DOC_MAP = {
     "README.md": ("root-readme.md", {"74f60c46425156057cf77d7bfdf4785d1afef676cd6acf42ab44bcafa0808840"}),
     "issues/README.md": ("issues-readme.md", {"adda8effc7ed2457e750055cf5f8de4ae8322778865646aca2fdbc3b9c29ec7e"}),
     "BENCHMARKS.md": ("benchmarks.md", {"429bf262350255e0429a90e3bfc66b9b92a9549150e53785be86a7a5b0b036bc"}),
+    "system/README.md": ("system-readme.md",
+                          {"cf7e3f663c02b4a7aac6db33f9b2e4c9e9f65490a6e44d5534dcf8dcc3c3b9de"}),
 }
+
+# system/ knowledge docs carry a YAML frontmatter header (schema 3+). They live in ANY subfolder of
+# system/ (nested allowed); the `domain` is the doc's path relative to system/. READMEs anywhere and
+# any *.md directly under system/ (no domain subfolder) are excluded.
+# Matches a per-section provenance label: **Source**: CARD-XXXX | YYYY-MM-DD
+SOURCE_RE = re.compile(r"^\*\*Source\*\*:\s*(CARD-[A-Za-z0-9._-]+)\s*\|\s*(\d{4}-\d{2}-\d{2})", re.M)
+H1_RE = re.compile(r"^#\s+(.+?)\s*$", re.M)
+# Matches the per-doc schema stamp in a frontmatter header: plugin_schema: N
+PLUGIN_SCHEMA_RE = re.compile(r"^plugin_schema:\s*(\d+)\s*$")
 
 
 def sha256(text: str) -> str:
@@ -94,7 +114,9 @@ def read_schema(root: Path) -> int:
     if not meta.is_file():
         return 0
     try:
-        return int(json.loads(meta.read_text(encoding="utf-8")).get("schema", 0))
+        data = json.loads(meta.read_text(encoding="utf-8"))
+        # `plugin_schema` is the current key; `schema` is the legacy key (<= 0.3.0 corpora).
+        return int(data.get("plugin_schema", data.get("schema", 0)))
     except (ValueError, OSError):
         return 0
 
@@ -118,6 +140,113 @@ def git_tracked_local_state(root: Path) -> list[str]:
         elif f == "trace.md" or f.endswith("/trace.md"):
             bad.add(f)
     return sorted(bad)
+
+
+def iter_system_docs(base: Path):
+    """Yield system/ knowledge docs: any *.md under a subfolder of system/ (nesting allowed).
+
+    Skips README.md anywhere and any *.md directly under system/ (those have no domain subfolder)."""
+    if not base.is_dir():
+        return
+    for f in sorted(base.rglob("*.md")):
+        if f.name.lower() == "readme.md":
+            continue
+        if f.parent == base:
+            continue
+        yield f
+
+
+def _yaml_dq(s: str) -> str:
+    """Double-quote a scalar so colons/brackets/backticks in titles stay valid YAML."""
+    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _build_header(path: Path, base: Path, target: int) -> str:
+    """Bootstrap a full frontmatter header for a doc that has none, derived from its body.
+
+    Hybrid model — the per-section **Source** lines stay for finding-level attribution; the header
+    aggregates them at the file level. The body is never modified."""
+    text = path.read_text(encoding="utf-8")
+    m = H1_RE.search(text)
+    title = m.group(1).strip() if m else path.stem.replace("-", " ").title()
+
+    cards: list[str] = []
+    dates: list[str] = []
+    for card, date in SOURCE_RE.findall(text):
+        if card not in cards:
+            cards.append(card)
+        dates.append(date)
+
+    lines = [
+        "---",
+        f"title: {_yaml_dq(title)}",
+        f"domain: {path.parent.relative_to(base).as_posix()}",
+        "source_cards: [" + ", ".join(cards) + "]",
+    ]
+    if dates:
+        lines.append(f"created: {min(dates)}")
+        lines.append(f"updated: {max(dates)}")
+    lines.append("status: active")
+    lines.append(f"plugin_schema: {target}")
+    lines.append("tags: []")
+    lines.append("---")
+    return "\n".join(lines) + "\n\n" + text
+
+
+def _ensure_plugin_schema(text: str, target: int) -> str | None:
+    """A doc that already has frontmatter: ensure plugin_schema is present and >= target.
+
+    Returns updated text, or None if already current (idempotent skip). Only the plugin_schema line
+    in the header is touched; every other field and the entire body are left exactly as-is."""
+    lines = text.split("\n")
+    if not lines or lines[0].strip() != "---":
+        return None
+    close = next((i for i in range(1, len(lines)) if lines[i].strip() == "---"), None)
+    if close is None:
+        return None  # malformed header; leave it alone
+
+    # Detect the field by KEY (any value) so a non-integer value can never produce a duplicate key.
+    header = lines[1:close]
+    cur = idx = None
+    for j, ln in enumerate(header):
+        s = ln.strip()
+        if s.startswith("plugin_schema:"):
+            idx = j
+            mm = PLUGIN_SCHEMA_RE.match(s)
+            cur = int(mm.group(1)) if mm else None  # unparseable -> treat as needing replacement
+            break
+    if idx is not None and cur is not None and cur >= target:
+        return None  # already at/after target
+
+    new_line = f"plugin_schema: {target}"
+    if idx is not None:
+        header[idx] = new_line  # replace in place (handles stale int OR malformed value)
+    else:
+        # Insert just after `status:`, else just before `tags:`, else at the end of the header.
+        status_idx = tags_idx = None
+        for j, ln in enumerate(header):
+            s = ln.strip()
+            if s.startswith("status:") and status_idx is None:
+                status_idx = j
+            elif s.startswith("tags:") and tags_idx is None:
+                tags_idx = j
+        insert_at = (status_idx + 1) if status_idx is not None else (
+            tags_idx if tags_idx is not None else len(header))
+        header.insert(insert_at, new_line)
+    return "\n".join(["---", *header, "---", *lines[close + 1:]])
+
+
+def migrate_doc(path: Path, base: Path, target: int):
+    """Bring one system/ doc to the current schema generation. Returns (label, new_text) or None.
+
+    - No frontmatter   -> bootstrap a full header (derived from the body), stamped plugin_schema.
+    - Has frontmatter  -> ensure plugin_schema is present and >= target (stamp/bump that line only).
+    Forward-only and idempotent: a doc already at the target schema yields None."""
+    text = path.read_text(encoding="utf-8")
+    if text.startswith("---\n") or text.startswith("---\r"):
+        updated = _ensure_plugin_schema(text, target)
+        return None if updated is None else ("stamp plugin_schema on", updated)
+    return ("add frontmatter to", _build_header(path, base, target))
 
 
 def build_plan(root: Path, templates: Path, target_schema: int, meta_text: str):
@@ -156,8 +285,16 @@ def build_plan(root: Path, templates: Path, target_schema: int, meta_text: str):
         else:
             actions.append(("doc", f"WARN: {rel} was modified — left as-is (update by hand if needed)", None))
 
+    base = root / "system"
+    for doc in iter_system_docs(base):
+        res = migrate_doc(doc, base, target_schema)
+        if res is not None:
+            label, new_text = res
+            rel = doc.relative_to(root).as_posix()
+            actions.append(("frontmatter", f"{label} {rel}", ("write", doc, new_text)))
+
     if read_schema(root) < target_schema:
-        actions.append(("meta", f"stamp {META_FILE} (schema {target_schema})",
+        actions.append(("meta", f"stamp {META_FILE} (plugin_schema {target_schema})",
                         ("write", root / META_FILE, meta_text)))
 
     return actions
@@ -199,12 +336,13 @@ def main(argv=None) -> int:
 
     # Target schema + stamp content come from the shipped template (single source of truth).
     meta_tmpl = templates / "rag-meta.json"
-    meta_text = json.dumps({"schema": SCHEMA_FALLBACK, "plugin": "rag"}, indent=2) + "\n"
+    meta_text = json.dumps({"plugin_schema": SCHEMA_FALLBACK, "plugin": "rag"}, indent=2) + "\n"
     target_schema = SCHEMA_FALLBACK
     if meta_tmpl.is_file():
         meta_text = meta_tmpl.read_text(encoding="utf-8")
         try:
-            target_schema = int(json.loads(meta_text).get("schema", SCHEMA_FALLBACK))
+            data = json.loads(meta_text)
+            target_schema = int(data.get("plugin_schema", data.get("schema", SCHEMA_FALLBACK)))
         except ValueError:
             pass
 
@@ -242,7 +380,7 @@ def main(argv=None) -> int:
     print(f"  cd {root}")
     print("  git status            # untracked traces are now staged deletions; new files are untracked")
     print("  git add -A && git commit -m 'chore(rag): migrate corpus to schema "
-          f"{target_schema} (commit boundary + lifecycle)'")
+          f"{target_schema}'")
     if warnings:
         print("\nManual follow-ups:")
         for w in warnings:

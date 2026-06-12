@@ -3,6 +3,32 @@
 All notable changes to the `rag` plugin are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com); the plugin uses semantic versioning.
 
+## [0.4.0] - 2026-06-12
+
+### Added
+- **YAML frontmatter on `system/` knowledge docs** (corpus schema **2 → 3**). Each doc now opens with
+  a machine-parseable header — `title`, `domain`, `source_cards`, `created`, `updated`, `status`,
+  `plugin_schema`, `tags` — that the planned retrieval indexer and Obsidian properties can consume.
+  Provenance is **hybrid**: the header aggregates it at the file level while each finding keeps its
+  per-section `**Source**` line for finding-level attribution.
+- **Self-describing migration via `plugin_schema`.** Each doc records the corpus generation it was
+  last aligned to, so `rag-migrate` upgrades a corpus by reading each doc's `plugin_schema` and applying
+  only the forward transforms it lacks — forward-only and idempotent (a doc already at the current
+  version is skipped). No per-version hash tables, no replaying intermediate schemas, no guessing from
+  content.
+- **`rag-migrate` doc gap-fill (recursive).** Brings `system/` docs to the current schema: a doc with
+  no frontmatter is bootstrapped (header derived from the `**Source**` labels + H1 already in it, then
+  stamped `plugin_schema`); a doc that already has frontmatter just gets `plugin_schema` stamped. It
+  writes only the header — the body is never edited. The scan covers **every subfolder of `system/`**
+  (nesting allowed), so corpora with custom or nested domain folders are handled; `README.md` and files
+  directly under `system/` are excluded. Idempotent, dry-run by default.
+
+### Changed
+- **`/rag:promote`** writes frontmatter when creating a `system/` doc, and on append updates the
+  header (`source_cards` union, `updated` date) in addition to adding the section.
+- **Format docs** (`skills/memory/references/structure.md`, the `system/README.md` template) document
+  the frontmatter convention and field meanings. `rag-migrate` now also hash-refreshes `system/README.md`.
+
 ## [0.3.0] - 2026-06-09
 
 ### Added
@@ -44,4 +70,5 @@ All notable changes to the `rag` plugin are documented here. Format follows
 - **`issues/closed/`** — superseded by `done/` (local) + `archive/` (committed). Existing `closed/`
   cards remain readable; no new ones are created.
 
+[0.4.0]: https://github.com/nicholas1513/claude-plugins
 [0.2.0]: https://github.com/nicholas1513/claude-plugins

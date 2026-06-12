@@ -70,12 +70,47 @@ A **benchmark moment** is when analysis yields a finding that teaches something 
 
 ## System File Format
 
+Each `system/` knowledge doc opens with a YAML **frontmatter** header — file-level,
+machine-parseable metadata (consumable by the retrieval indexer and Obsidian properties) — then the
+body. Provenance is **hybrid**: the header aggregates it at the file level, while each finding keeps
+its own `**Source**` line for finding-level attribution (one doc commonly aggregates findings from
+several cards).
+
 ```markdown
+---
+title: [Human title — mirrors the H1]
+domain: [subfolder under system/ — e.g. known-behaviors, or nested area/subarea]
+source_cards: [CARD-XXXXX, CARD-YYYYY]
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+status: active        # active | superseded
+plugin_schema: 3
+tags: []
+---
+
+# [Title]
+
 ## [Short title]
 **Source**: CARD-XXXXX | YYYY-MM-DD
 **Finding**: [Body]
 **Impact**: [What this affects going forward]
 ```
+
+| Field | Meaning |
+|---|---|
+| `title` | Human title; mirrors the H1. Double-quote if it contains a colon or backtick. |
+| `domain` | The doc's subfolder path under `system/` (e.g. `known-behaviors`; may be nested like `area/subarea`). |
+| `source_cards` | Union of every card that contributed a section to this file. |
+| `created` / `updated` | Earliest / latest contribution dates. |
+| `status` | `active`, or `superseded` when the doc is retired. |
+| `plugin_schema` | The corpus generation this doc was last aligned to (a monotonic integer, the same one stamped in `.rag-meta.json`). Makes the doc **self-describing**: `rag-migrate` reads it to decide whether the doc needs upgrading — no content guessing, no per-version hash tables, no replaying intermediate schemas. |
+| `tags` | Free-form; a corpus may use these for its own finer-grained taxonomy. |
+
+> **Self-describing migration.** `rag-migrate` brings docs to the current schema by reading each doc's
+> `plugin_schema` and applying only the forward transforms it lacks (idempotent — a doc already at
+> the current version is skipped). A doc with no frontmatter is bootstrapped: the header is derived
+> from the `**Source**` labels already in the body, then stamped. The body is never altered. The scan
+> covers every subfolder of `system/` (nesting allowed).
 
 ## Trace Entry Format
 
