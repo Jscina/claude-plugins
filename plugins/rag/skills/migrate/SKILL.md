@@ -7,9 +7,10 @@ description: Upgrade an existing rag-memory/ corpus that was initialized by an o
 
 Bring an existing `rag-memory/` corpus up to the current plugin schema. A corpus created by an older
 plugin version is missing the commit boundary (`.gitignore`), the `backlog/` and `done/` lifecycle
-dirs, the `.rag-meta.json` version stamp, and the refreshed instruction docs — so the v0.2.0
-guarantees **silently don't apply** until you migrate (most importantly, `trace.md` keeps getting
-committed).
+dirs, the `.rag-meta.json` version stamp, the refreshed instruction docs, and (schema 3) the YAML
+frontmatter on `system/` knowledge docs — so the current guarantees **silently don't apply** until
+you migrate (most importantly, `trace.md` keeps getting committed, and `system/` docs stay
+machine-unreadable).
 
 Driven by the bundled `bin/rag-migrate` script (on PATH when the plugin loads). It is **idempotent
 and dry-run by default**, so it is safe to run anytime.
@@ -36,9 +37,13 @@ and dry-run by default**, so it is safe to run anytime.
 
 - **Creates** missing `issues/backlog/`, `issues/done/` (and any missing `archive/` or `system/*`).
 - **Writes** `.gitignore` only if absent; if one exists but lacks `**/trace.md`, it warns instead of editing yours.
-- **Refreshes** `README.md`, `issues/README.md`, `BENCHMARKS.md` **only if they still match a known
-  old template** (hash check). If you edited them, it leaves them and warns.
-- **Never** deletes a card, rewrites `system/` content, or touches legacy `issues/closed/`.
+- **Refreshes** `README.md`, `issues/README.md`, `BENCHMARKS.md`, `system/README.md` **only if they
+  still match a known old template** (hash check). If you edited them, it leaves them and warns.
+- **Retrofits** YAML frontmatter onto `system/{architecture,schemas,services,known-behaviors}/*.md`
+  docs that lack it (schema 3): it *prepends* a header (`title`/`domain`/`source_cards`/`created`/
+  `updated`/`status`/`tags`) derived from the `**Source**` labels already in the doc. It adds only the
+  header — the body is never edited — and skips docs that already have frontmatter and any `README.md`.
+- **Never** deletes a card, edits the *body* of a `system/` doc, or touches legacy `issues/closed/`.
 
 ## Key details
 

@@ -13,9 +13,22 @@ This directory contains long-term, versioned knowledge about the system. Everyth
 
 ## Format Standards
 
-Each file in `system/` should follow this structure:
+Each file in `system/` opens with a YAML **frontmatter** header (file-level, machine-parseable
+metadata) followed by the body. Provenance is **hybrid**: the header aggregates it for the whole
+file, while each finding keeps its own `**Source**` line — a single file often gathers findings from
+several cards.
 
 ```markdown
+---
+title: [Topic Title — mirrors the H1]
+domain: [known-behaviors | services | schemas | architecture]
+source_cards: [CARD-XXXXX]
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+status: active
+tags: []
+---
+
 # [Topic Title]
 
 ## Overview
@@ -27,7 +40,8 @@ Brief description of what this file covers.
 **Impact**: What this affects going forward
 ```
 
-Files promoted from issue cards should always include the source card ID so findings remain traceable.
+Files promoted from issue cards should always include the source card ID — both in `source_cards`
+(file level) and in the section's `**Source**` line (finding level) — so findings remain traceable.
 
 ## Update Policy
 

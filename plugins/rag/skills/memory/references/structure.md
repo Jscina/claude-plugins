@@ -70,12 +70,42 @@ A **benchmark moment** is when analysis yields a finding that teaches something 
 
 ## System File Format
 
+Each `system/` knowledge doc opens with a YAML **frontmatter** header — file-level,
+machine-parseable metadata (consumable by the retrieval indexer and Obsidian properties) — then the
+body. Provenance is **hybrid**: the header aggregates it at the file level, while each finding keeps
+its own `**Source**` line for finding-level attribution (one doc commonly aggregates findings from
+several cards).
+
 ```markdown
+---
+title: [Human title — mirrors the H1]
+domain: [known-behaviors | services | schemas | architecture]
+source_cards: [CARD-XXXXX, CARD-YYYYY]
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+status: active        # active | superseded
+tags: []
+---
+
+# [Title]
+
 ## [Short title]
 **Source**: CARD-XXXXX | YYYY-MM-DD
 **Finding**: [Body]
 **Impact**: [What this affects going forward]
 ```
+
+| Field | Meaning |
+|---|---|
+| `title` | Human title; mirrors the H1. Double-quote if it contains a colon or backtick. |
+| `domain` | The containing `system/` subfolder (`known-behaviors`, `services`, `schemas`, `architecture`). |
+| `source_cards` | Union of every card that contributed a section to this file. |
+| `created` / `updated` | Earliest / latest contribution dates. |
+| `status` | `active`, or `superseded` when the doc is retired. |
+| `tags` | Free-form; a corpus may use these for its own finer-grained taxonomy. |
+
+> Existing corpora are retrofitted by `rag-migrate` (schema 3), which derives the header from the
+> `**Source**` labels already in each doc and never alters the body.
 
 ## Trace Entry Format
 

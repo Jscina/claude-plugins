@@ -47,22 +47,41 @@ This sweep is **read-only on `trace.md`** — never modify the trace. It only ad
 
    Also determine the **target filename** (e.g., `e3-log-truncation.md`). If the file already exists, the finding will be appended as a new section.
 
-3. **Write to the system file.** Create or append to `system/<subfolder>/<filename>.md` using this format:
+3. **Write to the system file.** Every `system/` knowledge doc carries a YAML **frontmatter** header
+   (file-level, machine-parseable metadata — consumable by the retrieval indexer and Obsidian
+   properties) followed by the body. The per-section `**Source**` line **stays**: the header aggregates
+   provenance at the file level, the `**Source**` line attributes each individual finding.
+
+   **Creating a new file** — write the frontmatter, the H1, then the first section:
 
    ```markdown
+   ---
+   title: [Human title — mirrors the H1 below]
+   domain: [known-behaviors | services | schemas | architecture — match the subfolder]
+   source_cards: [CARD-XXXXX]
+   created: YYYY-MM-DD
+   updated: YYYY-MM-DD
+   status: active
+   tags: []
+   ---
+
+   # [Title]
+
    ## [Short title]
    **Source**: CARD-XXXXX | YYYY-MM-DD
    **Finding**: [Body of the finding]
    **Impact**: [What this affects going forward]
    ```
 
-   If creating a new file, add a top-level heading first:
-   ```markdown
-   # [Filename as title]
+   **Appending to an existing file** — add the new `## [Short title]` section (with its own
+   `**Source**` line) at the end, then **update the header**: add this card to `source_cards` if it
+   isn't already listed, and set `updated:` to today. Leave existing sections untouched.
 
-   ## [Short title]
-   ...
-   ```
+   **Frontmatter fields** — `title` (mirrors the H1; double-quote it if it contains a colon or
+   backtick), `domain` (the containing `system/` subfolder), `source_cards` (the union of every card
+   that contributed a section), `created`/`updated` (earliest / latest contribution dates), `status`
+   (`active` or `superseded`), `tags` (free-form; a corpus may use these for its own finer-grained
+   taxonomy).
 
 4. **Update the card's benchmarks.md.** Append or update an entry:
 

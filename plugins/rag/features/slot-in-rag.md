@@ -87,11 +87,14 @@ The corpus already chunks itself. Every promoted finding lives under a `##` head
 **Impact**: [What this affects going forward]
 ```
 
-That's an ideal retrieval unit: self-contained, named, traceable to source. The indexer should:
+That's an ideal retrieval unit: self-contained, named, traceable to source. Each file also opens with
+a YAML **frontmatter** header (schema 3) carrying file-level metadata — `title`, `domain`,
+`source_cards`, `created`/`updated`, `status`, `tags` — that the indexer can parse once and attach to
+every chunk from that file (enabling domain/tag/status filtering at query time). The indexer should:
 
-1. Parse each `.md` file
-2. Split on `##` boundaries (treat content before the first `##` as file-level overview, embed it as its own chunk with heading "_overview_")
-3. For each chunk, store: file path, heading, full chunk text, content hash, and the embedding
+1. Parse each `.md` file; lift the YAML frontmatter header (if present) into file-level metadata
+2. Split the body on `##` boundaries (treat content before the first `##` as file-level overview, embed it as its own chunk with heading "_overview_")
+3. For each chunk, store: file path, heading, full chunk text, content hash, the file-level frontmatter fields, and the embedding
 4. Skip chunks shorter than ~50 chars (template stubs, empty placeholders)
 
 ## File-level plan

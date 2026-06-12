@@ -3,6 +3,25 @@
 All notable changes to the `rag` plugin are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com); the plugin uses semantic versioning.
 
+## [0.4.0] - 2026-06-11
+
+### Added
+- **YAML frontmatter on `system/` knowledge docs** (corpus schema **2 → 3**). Each doc now opens with
+  a machine-parseable header — `title`, `domain`, `source_cards`, `created`, `updated`, `status`,
+  `tags` — that the planned retrieval indexer and Obsidian properties can consume. Provenance is
+  **hybrid**: the header aggregates it at the file level while each finding keeps its per-section
+  `**Source**` line for finding-level attribution.
+- **`rag-migrate` frontmatter gap-fill.** Migrating to schema 3 retrofits the header onto existing
+  `system/{architecture,schemas,services,known-behaviors}/*.md` docs, deriving `source_cards`/`created`/
+  `updated` from the `**Source**` labels already in each doc. It prepends only the header — the body is
+  never edited — and skips docs that already have frontmatter (idempotent, dry-run by default).
+
+### Changed
+- **`/rag:promote`** writes frontmatter when creating a `system/` doc, and on append updates the
+  header (`source_cards` union, `updated` date) in addition to adding the section.
+- **Format docs** (`skills/memory/references/structure.md`, the `system/README.md` template) document
+  the frontmatter convention and field meanings. `rag-migrate` now also hash-refreshes `system/README.md`.
+
 ## [0.3.0] - 2026-06-09
 
 ### Added
@@ -44,4 +63,5 @@ All notable changes to the `rag` plugin are documented here. Format follows
 - **`issues/closed/`** — superseded by `done/` (local) + `archive/` (committed). Existing `closed/`
   cards remain readable; no new ones are created.
 
+[0.4.0]: https://github.com/nicholas1513/claude-plugins
 [0.2.0]: https://github.com/nicholas1513/claude-plugins
