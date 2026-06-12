@@ -13,10 +13,14 @@ What it does (only what's needed):
     files are kept on disk)
   * refreshes generated docs (README.md, issues/README.md, BENCHMARKS.md, system/README.md)
     ONLY when they still match a known old template (never clobbers your edits)
-  * retrofits YAML frontmatter onto system/ knowledge docs that lack it (schema 3) --
-    title/domain/source_cards/created/updated derived from the existing **Source** labels;
-    only the header is added, the doc body is never touched, and docs that already have
-    frontmatter are skipped
+  * brings system/ knowledge docs to the current doc schema (schema 3+). Docs self-describe via a
+    `schema_version` field in their frontmatter, so the migration is forward-only and idempotent:
+      - a doc with no frontmatter is bootstrapped -- title/domain/source_cards/created/updated derived
+        from the existing **Source** labels and the body, then stamped schema_version
+      - a doc that already has frontmatter only gets its schema_version stamped/bumped to current
+      - a doc already at the current schema_version is skipped
+    Only the header is written; the doc body is never touched. Scans every subfolder of system/
+    (nesting allowed); README.md and files directly under system/ are excluded.
   * stamps .rag-meta.json with the current schema
 
 Usage:
@@ -60,12 +64,14 @@ DOC_MAP = {
                           {"cf7e3f663c02b4a7aac6db33f9b2e4c9e9f65490a6e44d5534dcf8dcc3c3b9de"}),
 }
 
-# system/ knowledge docs live under these subfolders; their *.md files carry frontmatter (schema 3).
-# system/README.md and any nested READMEs are guide docs, not knowledge docs -> excluded.
-SYSTEM_DOC_DIRS = ("architecture", "schemas", "services", "known-behaviors")
+# system/ knowledge docs carry a YAML frontmatter header (schema 3+). They live in ANY subfolder of
+# system/ (nested allowed); the `domain` is the doc's path relative to system/. READMEs anywhere and
+# any *.md directly under system/ (no domain subfolder) are excluded.
 # Matches a per-section provenance label: **Source**: CARD-XXXX | YYYY-MM-DD
 SOURCE_RE = re.compile(r"^\*\*Source\*\*:\s*(CARD-[A-Za-z0-9._-]+)\s*\|\s*(\d{4}-\d{2}-\d{2})", re.M)
 H1_RE = re.compile(r"^#\s+(.+?)\s*$", re.M)
+# Matches the per-doc schema stamp in a frontmatter header: schema_version: N
+SCHEMA_VER_RE = re.compile(r"^schema_version:\s*(\d+)\s*$")
 
 
 def sha256(text: str) -> str:
@@ -134,17 +140,18 @@ def git_tracked_local_state(root: Path) -> list[str]:
     return sorted(bad)
 
 
-def iter_system_docs(root: Path):
-    """Yield system/<subfolder>/*.md knowledge docs (skips READMEs and other dirs)."""
-    base = root / "system"
-    for sub in SYSTEM_DOC_DIRS:
-        d = base / sub
-        if not d.is_dir():
+def iter_system_docs(base: Path):
+    """Yield system/ knowledge docs: any *.md under a subfolder of system/ (nesting allowed).
+
+    Skips README.md anywhere and any *.md directly under system/ (those have no domain subfolder)."""
+    if not base.is_dir():
+        return
+    for f in sorted(base.rglob("*.md")):
+        if f.name.lower() == "readme.md":
             continue
-        for f in sorted(d.glob("*.md")):
-            if f.name.lower() == "readme.md":
-                continue
-            yield f
+        if f.parent == base:
+            continue
+        yield f
 
 
 def _yaml_dq(s: str) -> str:
@@ -152,16 +159,12 @@ def _yaml_dq(s: str) -> str:
     return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def build_frontmatter(path: Path) -> str | None:
-    """Return the doc with a YAML frontmatter header prepended, or None if it already has one.
+def _build_header(path: Path, base: Path, target: int) -> str:
+    """Bootstrap a full frontmatter header for a doc that has none, derived from its body.
 
-    File-level metadata is derived from the body (hybrid model — the per-section **Source**
-    lines are left in place for finding-level attribution). The body is never modified.
-    """
+    Hybrid model — the per-section **Source** lines stay for finding-level attribution; the header
+    aggregates them at the file level. The body is never modified."""
     text = path.read_text(encoding="utf-8")
-    if text.startswith("---\n") or text.startswith("---\r"):
-        return None  # already has frontmatter
-
     m = H1_RE.search(text)
     title = m.group(1).strip() if m else path.stem.replace("-", " ").title()
 
@@ -175,16 +178,65 @@ def build_frontmatter(path: Path) -> str | None:
     lines = [
         "---",
         f"title: {_yaml_dq(title)}",
-        f"domain: {path.parent.name}",
+        f"domain: {path.parent.relative_to(base).as_posix()}",
         "source_cards: [" + ", ".join(cards) + "]",
     ]
     if dates:
         lines.append(f"created: {min(dates)}")
         lines.append(f"updated: {max(dates)}")
     lines.append("status: active")
+    lines.append(f"schema_version: {target}")
     lines.append("tags: []")
     lines.append("---")
     return "\n".join(lines) + "\n\n" + text
+
+
+def _ensure_schema_version(text: str, target: int) -> str | None:
+    """A doc that already has frontmatter: ensure schema_version is present and >= target.
+
+    Returns updated text, or None if already current (idempotent skip). Only the schema_version line
+    in the header is touched; every other field and the entire body are left exactly as-is."""
+    lines = text.split("\n")
+    if not lines or lines[0].strip() != "---":
+        return None
+    close = next((i for i in range(1, len(lines)) if lines[i].strip() == "---"), None)
+    if close is None:
+        return None  # malformed header; leave it alone
+
+    header = lines[1:close]
+    cur = idx = None
+    for j, ln in enumerate(header):
+        mm = SCHEMA_VER_RE.match(ln.strip())
+        if mm:
+            cur, idx = int(mm.group(1)), j
+            break
+    if cur is not None and cur >= target:
+        return None  # already at/after target
+
+    new_line = f"schema_version: {target}"
+    if idx is not None:
+        header[idx] = new_line
+    else:
+        insert_at = len(header)
+        for j, ln in enumerate(header):
+            if ln.strip().startswith("status:"):
+                insert_at = j + 1
+                break
+        header.insert(insert_at, new_line)
+    return "\n".join(["---", *header, "---", *lines[close + 1:]])
+
+
+def migrate_doc(path: Path, base: Path, target: int):
+    """Bring one system/ doc to the current doc schema. Returns (label, new_text) or None.
+
+    - No frontmatter   -> bootstrap a full header (derived from the body), stamped schema_version.
+    - Has frontmatter  -> ensure schema_version is present and >= target (stamp/bump that line only).
+    Forward-only and idempotent: a doc already at the target schema yields None."""
+    text = path.read_text(encoding="utf-8")
+    if text.startswith("---\n") or text.startswith("---\r"):
+        updated = _ensure_schema_version(text, target)
+        return None if updated is None else ("stamp schema_version on", updated)
+    return ("add frontmatter to", _build_header(path, base, target))
 
 
 def build_plan(root: Path, templates: Path, target_schema: int, meta_text: str):
@@ -223,11 +275,13 @@ def build_plan(root: Path, templates: Path, target_schema: int, meta_text: str):
         else:
             actions.append(("doc", f"WARN: {rel} was modified — left as-is (update by hand if needed)", None))
 
-    for doc in iter_system_docs(root):
-        new_text = build_frontmatter(doc)
-        if new_text is not None:
+    base = root / "system"
+    for doc in iter_system_docs(base):
+        res = migrate_doc(doc, base, target_schema)
+        if res is not None:
+            label, new_text = res
             rel = doc.relative_to(root).as_posix()
-            actions.append(("frontmatter", f"add frontmatter to {rel}", ("write", doc, new_text)))
+            actions.append(("frontmatter", f"{label} {rel}", ("write", doc, new_text)))
 
     if read_schema(root) < target_schema:
         actions.append(("meta", f"stamp {META_FILE} (schema {target_schema})",

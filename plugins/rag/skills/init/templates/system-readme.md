@@ -21,11 +21,12 @@ several cards.
 ```markdown
 ---
 title: [Topic Title — mirrors the H1]
-domain: [known-behaviors | services | schemas | architecture]
+domain: [subfolder under system/ — e.g. known-behaviors, or nested area/subarea]
 source_cards: [CARD-XXXXX]
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 status: active
+schema_version: 3
 tags: []
 ---
 

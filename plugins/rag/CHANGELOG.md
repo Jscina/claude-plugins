@@ -8,13 +8,20 @@ All notable changes to the `rag` plugin are documented here. Format follows
 ### Added
 - **YAML frontmatter on `system/` knowledge docs** (corpus schema **2 → 3**). Each doc now opens with
   a machine-parseable header — `title`, `domain`, `source_cards`, `created`, `updated`, `status`,
-  `tags` — that the planned retrieval indexer and Obsidian properties can consume. Provenance is
-  **hybrid**: the header aggregates it at the file level while each finding keeps its per-section
-  `**Source**` line for finding-level attribution.
-- **`rag-migrate` frontmatter gap-fill.** Migrating to schema 3 retrofits the header onto existing
-  `system/{architecture,schemas,services,known-behaviors}/*.md` docs, deriving `source_cards`/`created`/
-  `updated` from the `**Source**` labels already in each doc. It prepends only the header — the body is
-  never edited — and skips docs that already have frontmatter (idempotent, dry-run by default).
+  `schema_version`, `tags` — that the planned retrieval indexer and Obsidian properties can consume.
+  Provenance is **hybrid**: the header aggregates it at the file level while each finding keeps its
+  per-section `**Source**` line for finding-level attribution.
+- **Self-describing migration via `schema_version`.** Each doc records the doc-format version it
+  conforms to, so `rag-migrate` upgrades a corpus by reading each doc's `schema_version` and applying
+  only the forward transforms it lacks — forward-only and idempotent (a doc already at the current
+  version is skipped). No per-version hash tables, no replaying intermediate schemas, no guessing from
+  content.
+- **`rag-migrate` doc gap-fill (recursive).** Brings `system/` docs to the current schema: a doc with
+  no frontmatter is bootstrapped (header derived from the `**Source**` labels + H1 already in it, then
+  stamped `schema_version`); a doc that already has frontmatter just gets `schema_version` stamped. It
+  writes only the header — the body is never edited. The scan covers **every subfolder of `system/`**
+  (nesting allowed), so corpora with custom or nested domain folders are handled; `README.md` and files
+  directly under `system/` are excluded. Idempotent, dry-run by default.
 
 ### Changed
 - **`/rag:promote`** writes frontmatter when creating a `system/` doc, and on append updates the

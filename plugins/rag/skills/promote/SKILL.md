@@ -57,11 +57,12 @@ This sweep is **read-only on `trace.md`** — never modify the trace. It only ad
    ```markdown
    ---
    title: [Human title — mirrors the H1 below]
-   domain: [known-behaviors | services | schemas | architecture — match the subfolder]
+   domain: [the doc's subfolder under system/ — e.g. known-behaviors, or a nested area/subarea]
    source_cards: [CARD-XXXXX]
    created: YYYY-MM-DD
    updated: YYYY-MM-DD
    status: active
+   schema_version: 3
    tags: []
    ---
 
@@ -75,13 +76,16 @@ This sweep is **read-only on `trace.md`** — never modify the trace. It only ad
 
    **Appending to an existing file** — add the new `## [Short title]` section (with its own
    `**Source**` line) at the end, then **update the header**: add this card to `source_cards` if it
-   isn't already listed, and set `updated:` to today. Leave existing sections untouched.
+   isn't already listed, and set `updated:` to today. Leave existing sections and `schema_version`
+   untouched.
 
    **Frontmatter fields** — `title` (mirrors the H1; double-quote it if it contains a colon or
-   backtick), `domain` (the containing `system/` subfolder), `source_cards` (the union of every card
-   that contributed a section), `created`/`updated` (earliest / latest contribution dates), `status`
-   (`active` or `superseded`), `tags` (free-form; a corpus may use these for its own finer-grained
-   taxonomy).
+   backtick), `domain` (the doc's subfolder path under `system/`; may be nested), `source_cards` (the
+   union of every card that contributed a section), `created`/`updated` (earliest / latest contribution
+   dates), `status` (`active` or `superseded`), `schema_version` (the doc-format version this header
+   conforms to — set it to the corpus's current schema, `3`; `rag-migrate` reads it to know whether a
+   doc needs upgrading, so it never has to guess from content), `tags` (free-form; a corpus may use
+   these for its own finer-grained taxonomy).
 
 4. **Update the card's benchmarks.md.** Append or update an entry:
 

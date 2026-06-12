@@ -79,11 +79,12 @@ several cards).
 ```markdown
 ---
 title: [Human title — mirrors the H1]
-domain: [known-behaviors | services | schemas | architecture]
+domain: [subfolder under system/ — e.g. known-behaviors, or nested area/subarea]
 source_cards: [CARD-XXXXX, CARD-YYYYY]
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 status: active        # active | superseded
+schema_version: 3
 tags: []
 ---
 
@@ -98,14 +99,18 @@ tags: []
 | Field | Meaning |
 |---|---|
 | `title` | Human title; mirrors the H1. Double-quote if it contains a colon or backtick. |
-| `domain` | The containing `system/` subfolder (`known-behaviors`, `services`, `schemas`, `architecture`). |
+| `domain` | The doc's subfolder path under `system/` (e.g. `known-behaviors`; may be nested like `area/subarea`). |
 | `source_cards` | Union of every card that contributed a section to this file. |
 | `created` / `updated` | Earliest / latest contribution dates. |
 | `status` | `active`, or `superseded` when the doc is retired. |
+| `schema_version` | The doc-format version this header conforms to. Makes the doc **self-describing**: `rag-migrate` reads it to decide whether the doc needs upgrading — no content guessing, no per-version hash tables, no replaying intermediate schemas. |
 | `tags` | Free-form; a corpus may use these for its own finer-grained taxonomy. |
 
-> Existing corpora are retrofitted by `rag-migrate` (schema 3), which derives the header from the
-> `**Source**` labels already in each doc and never alters the body.
+> **Self-describing migration.** `rag-migrate` brings docs to the current schema by reading each doc's
+> `schema_version` and applying only the forward transforms it lacks (idempotent — a doc already at
+> the current version is skipped). A doc with no frontmatter is bootstrapped: the header is derived
+> from the `**Source**` labels already in the body, then stamped. The body is never altered. The scan
+> covers every subfolder of `system/` (nesting allowed).
 
 ## Trace Entry Format
 

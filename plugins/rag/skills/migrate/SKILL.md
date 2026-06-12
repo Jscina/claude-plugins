@@ -39,10 +39,18 @@ and dry-run by default**, so it is safe to run anytime.
 - **Writes** `.gitignore` only if absent; if one exists but lacks `**/trace.md`, it warns instead of editing yours.
 - **Refreshes** `README.md`, `issues/README.md`, `BENCHMARKS.md`, `system/README.md` **only if they
   still match a known old template** (hash check). If you edited them, it leaves them and warns.
-- **Retrofits** YAML frontmatter onto `system/{architecture,schemas,services,known-behaviors}/*.md`
-  docs that lack it (schema 3): it *prepends* a header (`title`/`domain`/`source_cards`/`created`/
-  `updated`/`status`/`tags`) derived from the `**Source**` labels already in the doc. It adds only the
-  header — the body is never edited — and skips docs that already have frontmatter and any `README.md`.
+- **Brings `system/` knowledge docs to the current doc schema** (schema 3+). Docs are
+  **self-describing** via a `schema_version` field in their frontmatter, so the migration is
+  forward-only and idempotent:
+  - a doc with **no frontmatter** is bootstrapped — a header (`title`/`domain`/`source_cards`/
+    `created`/`updated`/`status`/`schema_version`/`tags`) is *prepended*, derived from the `**Source**`
+    labels and H1 already in the doc;
+  - a doc that **already has frontmatter** just gets its `schema_version` stamped/bumped to current;
+  - a doc **already at the current `schema_version`** is skipped.
+  It writes only the header — the body is never edited. The scan covers **every subfolder of
+  `system/`** (nesting allowed); `domain` is the doc's path under `system/`. `README.md` files and any
+  `*.md` directly under `system/` are excluded. No per-version hash table and no replaying intermediate
+  schemas — the doc itself says where it is.
 - **Never** deletes a card, edits the *body* of a `system/` doc, or touches legacy `issues/closed/`.
 
 ## Key details

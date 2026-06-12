@@ -89,8 +89,9 @@ The corpus already chunks itself. Every promoted finding lives under a `##` head
 
 That's an ideal retrieval unit: self-contained, named, traceable to source. Each file also opens with
 a YAML **frontmatter** header (schema 3) carrying file-level metadata — `title`, `domain`,
-`source_cards`, `created`/`updated`, `status`, `tags` — that the indexer can parse once and attach to
-every chunk from that file (enabling domain/tag/status filtering at query time). The indexer should:
+`source_cards`, `created`/`updated`, `status`, `schema_version`, `tags` — that the indexer can parse
+once and attach to every chunk from that file (enabling domain/tag/status filtering at query time).
+The indexer should:
 
 1. Parse each `.md` file; lift the YAML frontmatter header (if present) into file-level metadata
 2. Split the body on `##` boundaries (treat content before the first `##` as file-level overview, embed it as its own chunk with heading "_overview_")
