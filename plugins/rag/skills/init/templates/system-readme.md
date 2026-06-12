@@ -26,7 +26,7 @@ source_cards: [CARD-XXXXX]
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 status: active
-schema_version: 3
+plugin_schema: 3
 tags: []
 ---
 

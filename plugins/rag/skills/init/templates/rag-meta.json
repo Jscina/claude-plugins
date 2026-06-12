@@ -1,4 +1,4 @@
 {
-  "schema": 3,
+  "plugin_schema": 3,
   "plugin": "rag"
 }

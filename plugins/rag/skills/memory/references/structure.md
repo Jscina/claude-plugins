@@ -84,7 +84,7 @@ source_cards: [CARD-XXXXX, CARD-YYYYY]
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 status: active        # active | superseded
-schema_version: 3
+plugin_schema: 3
 tags: []
 ---
 
@@ -103,11 +103,11 @@ tags: []
 | `source_cards` | Union of every card that contributed a section to this file. |
 | `created` / `updated` | Earliest / latest contribution dates. |
 | `status` | `active`, or `superseded` when the doc is retired. |
-| `schema_version` | The doc-format version this header conforms to. Makes the doc **self-describing**: `rag-migrate` reads it to decide whether the doc needs upgrading — no content guessing, no per-version hash tables, no replaying intermediate schemas. |
+| `plugin_schema` | The doc-format version this header conforms to. Makes the doc **self-describing**: `rag-migrate` reads it to decide whether the doc needs upgrading — no content guessing, no per-version hash tables, no replaying intermediate schemas. |
 | `tags` | Free-form; a corpus may use these for its own finer-grained taxonomy. |
 
 > **Self-describing migration.** `rag-migrate` brings docs to the current schema by reading each doc's
-> `schema_version` and applying only the forward transforms it lacks (idempotent — a doc already at
+> `plugin_schema` and applying only the forward transforms it lacks (idempotent — a doc already at
 > the current version is skipped). A doc with no frontmatter is bootstrapped: the header is derived
 > from the `**Source**` labels already in the body, then stamped. The body is never altered. The scan
 > covers every subfolder of `system/` (nesting allowed).

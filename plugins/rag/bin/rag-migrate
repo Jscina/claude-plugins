@@ -13,12 +13,12 @@ What it does (only what's needed):
     files are kept on disk)
   * refreshes generated docs (README.md, issues/README.md, BENCHMARKS.md, system/README.md)
     ONLY when they still match a known old template (never clobbers your edits)
-  * brings system/ knowledge docs to the current doc schema (schema 3+). Docs self-describe via a
-    `schema_version` field in their frontmatter, so the migration is forward-only and idempotent:
+  * brings system/ knowledge docs to the current doc schema (plugin_schema 3+). Docs self-describe
+    via a `plugin_schema` field in their frontmatter, so the migration is forward-only and idempotent:
       - a doc with no frontmatter is bootstrapped -- title/domain/source_cards/created/updated derived
-        from the existing **Source** labels and the body, then stamped schema_version
-      - a doc that already has frontmatter only gets its schema_version stamped/bumped to current
-      - a doc already at the current schema_version is skipped
+        from the existing **Source** labels and the body, then stamped plugin_schema
+      - a doc that already has frontmatter only gets its plugin_schema stamped/bumped to current
+      - a doc already at the current plugin_schema is skipped
     Only the header is written; the doc body is never touched. Scans every subfolder of system/
     (nesting allowed); README.md and files directly under system/ are excluded.
   * stamps .rag-meta.json with the current schema
@@ -70,8 +70,8 @@ DOC_MAP = {
 # Matches a per-section provenance label: **Source**: CARD-XXXX | YYYY-MM-DD
 SOURCE_RE = re.compile(r"^\*\*Source\*\*:\s*(CARD-[A-Za-z0-9._-]+)\s*\|\s*(\d{4}-\d{2}-\d{2})", re.M)
 H1_RE = re.compile(r"^#\s+(.+?)\s*$", re.M)
-# Matches the per-doc schema stamp in a frontmatter header: schema_version: N
-SCHEMA_VER_RE = re.compile(r"^schema_version:\s*(\d+)\s*$")
+# Matches the per-doc schema stamp in a frontmatter header: plugin_schema: N
+PLUGIN_SCHEMA_RE = re.compile(r"^plugin_schema:\s*(\d+)\s*$")
 
 
 def sha256(text: str) -> str:
@@ -114,7 +114,9 @@ def read_schema(root: Path) -> int:
     if not meta.is_file():
         return 0
     try:
-        return int(json.loads(meta.read_text(encoding="utf-8")).get("schema", 0))
+        data = json.loads(meta.read_text(encoding="utf-8"))
+        # `plugin_schema` is the current key; `schema` is the legacy key (<= 0.3.0 corpora).
+        return int(data.get("plugin_schema", data.get("schema", 0)))
     except (ValueError, OSError):
         return 0
 
@@ -185,16 +187,16 @@ def _build_header(path: Path, base: Path, target: int) -> str:
         lines.append(f"created: {min(dates)}")
         lines.append(f"updated: {max(dates)}")
     lines.append("status: active")
-    lines.append(f"schema_version: {target}")
+    lines.append(f"plugin_schema: {target}")
     lines.append("tags: []")
     lines.append("---")
     return "\n".join(lines) + "\n\n" + text
 
 
-def _ensure_schema_version(text: str, target: int) -> str | None:
-    """A doc that already has frontmatter: ensure schema_version is present and >= target.
+def _ensure_plugin_schema(text: str, target: int) -> str | None:
+    """A doc that already has frontmatter: ensure plugin_schema is present and >= target.
 
-    Returns updated text, or None if already current (idempotent skip). Only the schema_version line
+    Returns updated text, or None if already current (idempotent skip). Only the plugin_schema line
     in the header is touched; every other field and the entire body are left exactly as-is."""
     lines = text.split("\n")
     if not lines or lines[0].strip() != "---":
@@ -206,14 +208,14 @@ def _ensure_schema_version(text: str, target: int) -> str | None:
     header = lines[1:close]
     cur = idx = None
     for j, ln in enumerate(header):
-        mm = SCHEMA_VER_RE.match(ln.strip())
+        mm = PLUGIN_SCHEMA_RE.match(ln.strip())
         if mm:
             cur, idx = int(mm.group(1)), j
             break
     if cur is not None and cur >= target:
         return None  # already at/after target
 
-    new_line = f"schema_version: {target}"
+    new_line = f"plugin_schema: {target}"
     if idx is not None:
         header[idx] = new_line
     else:
@@ -229,13 +231,13 @@ def _ensure_schema_version(text: str, target: int) -> str | None:
 def migrate_doc(path: Path, base: Path, target: int):
     """Bring one system/ doc to the current doc schema. Returns (label, new_text) or None.
 
-    - No frontmatter   -> bootstrap a full header (derived from the body), stamped schema_version.
-    - Has frontmatter  -> ensure schema_version is present and >= target (stamp/bump that line only).
+    - No frontmatter   -> bootstrap a full header (derived from the body), stamped plugin_schema.
+    - Has frontmatter  -> ensure plugin_schema is present and >= target (stamp/bump that line only).
     Forward-only and idempotent: a doc already at the target schema yields None."""
     text = path.read_text(encoding="utf-8")
     if text.startswith("---\n") or text.startswith("---\r"):
-        updated = _ensure_schema_version(text, target)
-        return None if updated is None else ("stamp schema_version on", updated)
+        updated = _ensure_plugin_schema(text, target)
+        return None if updated is None else ("stamp plugin_schema on", updated)
     return ("add frontmatter to", _build_header(path, base, target))
 
 
@@ -326,12 +328,13 @@ def main(argv=None) -> int:
 
     # Target schema + stamp content come from the shipped template (single source of truth).
     meta_tmpl = templates / "rag-meta.json"
-    meta_text = json.dumps({"schema": SCHEMA_FALLBACK, "plugin": "rag"}, indent=2) + "\n"
+    meta_text = json.dumps({"plugin_schema": SCHEMA_FALLBACK, "plugin": "rag"}, indent=2) + "\n"
     target_schema = SCHEMA_FALLBACK
     if meta_tmpl.is_file():
         meta_text = meta_tmpl.read_text(encoding="utf-8")
         try:
-            target_schema = int(json.loads(meta_text).get("schema", SCHEMA_FALLBACK))
+            data = json.loads(meta_text)
+            target_schema = int(data.get("plugin_schema", data.get("schema", SCHEMA_FALLBACK)))
         except ValueError:
             pass
 

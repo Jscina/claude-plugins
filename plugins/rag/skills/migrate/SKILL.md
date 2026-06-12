@@ -40,13 +40,13 @@ and dry-run by default**, so it is safe to run anytime.
 - **Refreshes** `README.md`, `issues/README.md`, `BENCHMARKS.md`, `system/README.md` **only if they
   still match a known old template** (hash check). If you edited them, it leaves them and warns.
 - **Brings `system/` knowledge docs to the current doc schema** (schema 3+). Docs are
-  **self-describing** via a `schema_version` field in their frontmatter, so the migration is
+  **self-describing** via a `plugin_schema` field in their frontmatter, so the migration is
   forward-only and idempotent:
   - a doc with **no frontmatter** is bootstrapped — a header (`title`/`domain`/`source_cards`/
-    `created`/`updated`/`status`/`schema_version`/`tags`) is *prepended*, derived from the `**Source**`
+    `created`/`updated`/`status`/`plugin_schema`/`tags`) is *prepended*, derived from the `**Source**`
     labels and H1 already in the doc;
-  - a doc that **already has frontmatter** just gets its `schema_version` stamped/bumped to current;
-  - a doc **already at the current `schema_version`** is skipped.
+  - a doc that **already has frontmatter** just gets its `plugin_schema` stamped/bumped to current;
+  - a doc **already at the current `plugin_schema`** is skipped.
   It writes only the header — the body is never edited. The scan covers **every subfolder of
   `system/`** (nesting allowed); `domain` is the doc's path under `system/`. `README.md` files and any
   `*.md` directly under `system/` are excluded. No per-version hash table and no replaying intermediate
