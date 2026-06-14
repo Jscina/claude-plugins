@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "rag",
   "description": "Two-layer RAG memory system for investigation work — System Knowledge (durable, versioned) and Issue Memory (active cards). Bundles init, card, trace, promote, context, and the memory orchestrator.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "author": {
     "name": "Nicholas DeTore",
     "email": "nicholas.detore@pm.me",

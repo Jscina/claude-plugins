@@ -3,6 +3,28 @@
 All notable changes to the `rag` plugin are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com); the plugin uses semantic versioning.
 
+## [0.5.0] - 2026-06-13
+
+### Added
+- **Issue-card headers.** Each card's `context.md` now carries a YAML frontmatter header
+  (`card_id`, `title`, `source`, `opened`, `closed`, `format_gen`, `tags`) so cards are queryable and
+  migratable. Lifecycle state stays directory-derived (not in the header). `trace.md` and
+  `benchmarks.md` are intentionally headerless — their `---`-fenced entry blocks would collide with a
+  file-level header. `bin/rag-new-card` and the card template emit the header natively.
+- **`rag-migrate` card pass.** Brings each card's `context.md` (across `backlog`/`active`/`done`/
+  `archive`) to the card format generation whenever behind, bootstrapping the header from the Issue
+  Summary fields. Body never edited.
+
+### Changed
+- **Per-kind, transform-driven migration.** Each file kind (system doc, issue card) advances on its own
+  format generation; the migrator brings a file only up to *its own kind's* latest generation. So a
+  release that changes one kind **no longer rewrites the other** — adding card headers does not touch
+  `system/` docs.
+- **The version field is renamed `plugin_schema` -> `format_gen`** in every file and in
+  `.rag-meta.json`, and means "the format generation this file conforms to" (a monotonic integer,
+  decoupled from the plugin SemVer). `rag-migrate` **sweeps** the legacy `plugin_schema` name to
+  `format_gen` and reads either (plus the older `schema` key) so corpora from any prior version upgrade.
+
 ## [0.4.0] - 2026-06-12
 
 ### Added
@@ -70,5 +92,6 @@ All notable changes to the `rag` plugin are documented here. Format follows
 - **`issues/closed/`** — superseded by `done/` (local) + `archive/` (committed). Existing `closed/`
   cards remain readable; no new ones are created.
 
+[0.5.0]: https://github.com/nicholas1513/claude-plugins
 [0.4.0]: https://github.com/nicholas1513/claude-plugins
 [0.2.0]: https://github.com/nicholas1513/claude-plugins

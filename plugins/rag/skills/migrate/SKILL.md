@@ -5,12 +5,12 @@ description: Upgrade an existing rag-memory/ corpus that was initialized by an o
 
 # RAG Migrate
 
-Bring an existing `rag-memory/` corpus up to the current plugin schema. A corpus created by an older
-plugin version is missing the commit boundary (`.gitignore`), the `backlog/` and `done/` lifecycle
-dirs, the `.rag-meta.json` version stamp, the refreshed instruction docs, and (schema 3) the YAML
-frontmatter on `system/` knowledge docs — so the current guarantees **silently don't apply** until
-you migrate (most importantly, `trace.md` keeps getting committed, and `system/` docs stay
-machine-unreadable).
+Bring an existing `rag-memory/` corpus up to the current plugin format generation. A corpus created by
+an older plugin version is missing the commit boundary (`.gitignore`), the `backlog/` and `done/`
+lifecycle dirs, the `.rag-meta.json` stamp, the refreshed instruction docs, the YAML frontmatter on
+`system/` knowledge docs (doc gen 3), and the header on issue cards' `context.md` (card gen 4) — so the
+current guarantees **silently don't apply** until you migrate (most importantly, `trace.md` keeps
+getting committed, and `system/` docs and cards stay machine-unreadable).
 
 Driven by the bundled `bin/rag-migrate` script (on PATH when the plugin loads). It is **idempotent
 and dry-run by default**, so it is safe to run anytime.
@@ -39,19 +39,24 @@ and dry-run by default**, so it is safe to run anytime.
 - **Writes** `.gitignore` only if absent; if one exists but lacks `**/trace.md`, it warns instead of editing yours.
 - **Refreshes** `README.md`, `issues/README.md`, `BENCHMARKS.md`, `system/README.md` **only if they
   still match a known old template** (hash check). If you edited them, it leaves them and warns.
-- **Brings `system/` knowledge docs to the current schema generation** (schema 3+). Docs are
-  **self-describing** via a `plugin_schema` field in their frontmatter, so the migration is
-  forward-only and idempotent:
-  - a doc with **no frontmatter** is bootstrapped — a header (`title`/`domain`/`source_cards`/
-    `created`/`updated`/`status`/`plugin_schema`/`tags`) is *prepended*, derived from the `**Source**`
-    labels and H1 already in the doc;
-  - a doc that **already has frontmatter** just gets its `plugin_schema` stamped/bumped to current;
-  - a doc **already at the current `plugin_schema`** is skipped.
-  It writes only the header — the body is never edited. The scan covers **every subfolder of
-  `system/`** (nesting allowed); `domain` is the doc's path under `system/`. `README.md` files and any
-  `*.md` directly under `system/` are excluded. No per-version hash table and no replaying intermediate
-  schemas — the doc itself says where it is.
-- **Never** deletes a card, edits the *body* of a `system/` doc, or touches legacy `issues/closed/`.
+Files are **self-describing** via a `format_gen` integer in their frontmatter (legacy name
+`plugin_schema` is **swept** to `format_gen` on migration). Each **kind** of file advances
+independently — the migrator brings a file only up to *its own kind's* latest format generation, so a
+release that changes one kind never rewrites the other. The migration is forward-only and idempotent.
+
+- **Doc pass** — brings `system/` knowledge docs to the **doc** generation. A doc with **no frontmatter**
+  is bootstrapped (a header — `title`/`domain`/`source_cards`/`created`/`updated`/`status`/`format_gen`/
+  `tags` — derived from the `**Source**` labels and H1 already in it); one that **has a header** gets its
+  `format_gen` swept/stamped; one **already current** is skipped. The scan covers **every subfolder of
+  `system/`** (nesting allowed); `README.md` files and `*.md` directly under `system/` are excluded.
+- **Card pass** — brings each issue card's `context.md` (in `backlog`/`active`/`done`/`archive`) to the
+  **card** generation, whenever behind. A card with **no header** is bootstrapped from its Issue Summary
+  fields (`card_id`/`title`/`source`/`opened`/`closed`/`format_gen`/`tags`); lifecycle state stays
+  directory-derived (not in the header). `trace.md` and `benchmarks.md` are **not** touched — their
+  `---`-fenced entry blocks would collide with a file-level header.
+- Both passes write **only the header — the body is never edited**. No per-version hash table and no
+  replaying intermediate schemas; the file itself says where it is.
+- **Never** deletes a card, edits the *body* of a doc or card, or touches legacy `issues/closed/`.
 
 ## Key details
 

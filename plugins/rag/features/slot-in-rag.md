@@ -89,7 +89,7 @@ The corpus already chunks itself. Every promoted finding lives under a `##` head
 
 That's an ideal retrieval unit: self-contained, named, traceable to source. Each file also opens with
 a YAML **frontmatter** header (schema 3) carrying file-level metadata — `title`, `domain`,
-`source_cards`, `created`/`updated`, `status`, `plugin_schema`, `tags` — that the indexer can parse
+`source_cards`, `created`/`updated`, `status`, `format_gen`, `tags` — that the indexer can parse
 once and attach to every chunk from that file (enabling domain/tag/status filtering at query time).
 The indexer should:
 

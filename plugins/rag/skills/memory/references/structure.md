@@ -84,7 +84,7 @@ source_cards: [CARD-XXXXX, CARD-YYYYY]
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 status: active        # active | superseded
-plugin_schema: 3
+format_gen: 3
 tags: []
 ---
 
@@ -103,14 +103,44 @@ tags: []
 | `source_cards` | Union of every card that contributed a section to this file. |
 | `created` / `updated` | Earliest / latest contribution dates. |
 | `status` | `active`, or `superseded` when the doc is retired. |
-| `plugin_schema` | The corpus generation this doc was last aligned to (a monotonic integer, the same one stamped in `.rag-meta.json`). Makes the doc **self-describing**: `rag-migrate` reads it to decide whether the doc needs upgrading — no content guessing, no per-version hash tables, no replaying intermediate schemas. |
+| `format_gen` | The format generation this file conforms to (a monotonic integer). Makes the file **self-describing**: `rag-migrate` reads it to decide whether the file needs upgrading — no content guessing, no per-version hash tables, no replaying intermediate schemas. Each file kind (doc, card) advances independently, so a doc only moves when the *doc* format changes. |
 | `tags` | Free-form; a corpus may use these for its own finer-grained taxonomy. |
 
-> **Self-describing migration.** `rag-migrate` brings docs to the current schema by reading each doc's
-> `plugin_schema` and applying only the forward transforms it lacks (idempotent — a doc already at
-> the current version is skipped). A doc with no frontmatter is bootstrapped: the header is derived
-> from the `**Source**` labels already in the body, then stamped. The body is never altered. The scan
-> covers every subfolder of `system/` (nesting allowed).
+> **Self-describing, per-kind migration.** `rag-migrate` brings each file only up to **its own kind's**
+> latest format generation by reading its `format_gen` and applying the forward transforms it lacks
+> (idempotent — a file already current is skipped). So a release that changes one kind never rewrites
+> the other (system docs and issue cards version independently). A file with no frontmatter is
+> bootstrapped from labels already in its body; the body is never altered. The doc scan covers every
+> subfolder of `system/` (nesting allowed). The legacy field name `plugin_schema` is swept to
+> `format_gen` on migration.
+
+## Issue Card Header Format
+
+Each card's `context.md` carries a YAML frontmatter header (so cards are queryable and migratable);
+`trace.md` and `benchmarks.md` do **not** (their `---`-fenced entry blocks would collide with a
+file-level header). Lifecycle state (`backlog`/`active`/`done`/`archive`) is **not** in the header —
+the directory is its single source of truth.
+
+```markdown
+---
+card_id: CARD-XXXXX
+title: ""                 # optional human title; H1 is usually just the id
+source: ado | qa | prod | other
+opened: YYYY-MM-DD
+closed:                   # set when filed to done/archive
+format_gen: 4
+tags: []
+---
+
+# CARD-XXXXX
+
+## Issue Summary
+- **Card ID**: CARD-XXXXX
+...
+```
+
+`rag-migrate`'s card pass bootstraps this header from the Issue Summary bold fields and stamps
+`format_gen`; the body is never modified.
 
 ## Trace Entry Format
 

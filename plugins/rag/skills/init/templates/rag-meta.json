@@ -1,4 +1,4 @@
 {
-  "plugin_schema": 3,
+  "format_gen": 4,
   "plugin": "rag"
 }
