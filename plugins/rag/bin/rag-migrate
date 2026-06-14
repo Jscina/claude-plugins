@@ -93,7 +93,6 @@ CARD_DIRS = ("backlog", "active", "done", "archive")
 # The Issue Summary fields are markdown list items ("- **Card ID**: ..."), so allow an optional
 # leading list marker before the bold label.
 CARD_ID_RE = re.compile(r"^\s*[-*]?\s*\*\*Card ID\*\*:\s*(.+?)\s*$", re.M)
-CARD_SOURCE_RE = re.compile(r"^\s*[-*]?\s*\*\*Source\*\*:\s*(.+?)\s*$", re.M)
 CARD_OPENED_RE = re.compile(r"^\s*[-*]?\s*\*\*Date Opened\*\*:\s*(.+?)\s*$", re.M)
 
 
@@ -216,28 +215,41 @@ def _build_doc_header(path: Path, base: Path, target: int) -> str:
     return "\n".join(lines) + "\n\n" + text
 
 
+def _yaml_scalar(v: str) -> str:
+    """A YAML-safe scalar: '' if empty (caller writes a bare `key:`), double-quoted when the value
+    contains a colon / comment marker or starts with an indicator character, else plain."""
+    v = v.strip()
+    if not v:
+        return ""
+    if ":" in v or "#" in v or v[0] in "-?,[]{}&*!|>'\"%@`":
+        return _yaml_dq(v)
+    return v
+
+
 def _build_card_header(ctx: Path, target: int) -> str:
     """Bootstrap a frontmatter header for an issue card's context.md, from its Issue Summary fields.
 
-    Lifecycle state (backlog/active/done/archive) is intentionally NOT stored here — the directory is
-    the single source of truth for it. The body is never modified."""
+    `source` is intentionally NOT carried in the header — origin systems (ADO, etc.) go stale over time
+    and add no durable query value; it stays in the body's Issue Summary. Lifecycle state is
+    directory-derived (not stored here). The body is never modified."""
     text = ctx.read_text(encoding="utf-8")
     m_id = CARD_ID_RE.search(text)
     card_id = m_id.group(1).strip() if m_id else ctx.parent.name
-    m_src = CARD_SOURCE_RE.search(text)
-    source = m_src.group(1).strip() if m_src else ""
     m_op = CARD_OPENED_RE.search(text)
     opened = m_op.group(1).strip() if m_op else ""
     m_h1 = H1_RE.search(text)
     h1 = m_h1.group(1).strip() if m_h1 else ""
     title = h1 if (h1 and h1 != card_id) else ""  # H1 is usually just the id -> leave title blank
 
+    def fld(key: str, val: str) -> str:
+        s = _yaml_scalar(val)
+        return f"{key}: {s}" if s else f"{key}:"
+
     lines = [
         "---",
-        f"card_id: {card_id}",
+        fld("card_id", card_id),
         f"title: {_yaml_dq(title)}",
-        f"source: {_yaml_dq(source)}" if source else "source:",
-        f"opened: {opened}" if opened else "opened:",
+        fld("opened", opened),
         "closed:",
         f"format_gen: {target}",
         "tags: []",

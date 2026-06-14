@@ -125,7 +125,6 @@ the directory is its single source of truth.
 ---
 card_id: CARD-XXXXX
 title: ""                 # optional human title; H1 is usually just the id
-source: ado | qa | prod | other
 opened: YYYY-MM-DD
 closed:                   # set when filed to done/archive
 format_gen: 4
@@ -136,11 +135,13 @@ tags: []
 
 ## Issue Summary
 - **Card ID**: CARD-XXXXX
+- **Source**: ado | qa | prod | other
 ...
 ```
 
-`rag-migrate`'s card pass bootstraps this header from the Issue Summary bold fields and stamps
-`format_gen`; the body is never modified.
+The card's **Source** stays in the body's Issue Summary (not the header) — origin systems go stale
+over time and add no durable query value. `rag-migrate`'s card pass bootstraps the header from the
+Issue Summary fields and stamps `format_gen`; the body is never modified.
 
 ## Trace Entry Format
 

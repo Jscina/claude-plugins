@@ -7,8 +7,10 @@ All notable changes to the `rag` plugin are documented here. Format follows
 
 ### Added
 - **Issue-card headers.** Each card's `context.md` now carries a YAML frontmatter header
-  (`card_id`, `title`, `source`, `opened`, `closed`, `format_gen`, `tags`) so cards are queryable and
-  migratable. Lifecycle state stays directory-derived (not in the header). `trace.md` and
+  (`card_id`, `title`, `opened`, `closed`, `format_gen`, `tags`) so cards are queryable and
+  migratable. The card's origin (`source`) stays in the body's Issue Summary — it goes stale over time
+  and adds no durable query value. Lifecycle state stays directory-derived (not in the header).
+  `trace.md` and
   `benchmarks.md` are intentionally headerless — their `---`-fenced entry blocks would collide with a
   file-level header. `bin/rag-new-card` and the card template emit the header natively.
 - **`rag-migrate` card pass.** Brings each card's `context.md` (across `backlog`/`active`/`done`/
