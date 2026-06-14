@@ -3,7 +3,7 @@ card_id: {{CARD_ID}}
 title: ""
 opened: {{DATE}}
 closed:
-format_gen: 4
+format_gen: 1
 tags: []
 ---
 

@@ -7,25 +7,23 @@ All notable changes to the `rag` plugin are documented here. Format follows
 
 ### Added
 - **Issue-card headers.** Each card's `context.md` now carries a YAML frontmatter header
-  (`card_id`, `title`, `opened`, `closed`, `format_gen`, `tags`) so cards are queryable and
-  migratable. The card's origin (`source`) stays in the body's Issue Summary — it goes stale over time
-  and adds no durable query value. Lifecycle state stays directory-derived (not in the header).
-  `trace.md` and
-  `benchmarks.md` are intentionally headerless — their `---`-fenced entry blocks would collide with a
-  file-level header. `bin/rag-new-card` and the card template emit the header natively.
-- **`rag-migrate` card pass.** Brings each card's `context.md` (across `backlog`/`active`/`done`/
-  `archive`) to the card format generation whenever behind, bootstrapping the header from the Issue
-  Summary fields. Body never edited.
+  (`card_id`, `title`, `opened`, `closed`, `format_gen`, `tags`) so cards are queryable. The card's
+  origin (`source`) stays in the body's Issue Summary — it goes stale over time and adds no durable
+  query value. Lifecycle state stays directory-derived (not in the header). `trace.md`/`benchmarks.md`
+  are intentionally headerless (their `---`-fenced entry blocks would collide with a file-level header).
+  New cards get the header from `rag-new-card` (via `/rag:card`).
+- **AI card-upgrade step in `/rag:migrate`.** Existing cards are upgraded by the skill, not the script:
+  the AI rewrites each out-of-date `context.md` to the current card template (and may enrich it),
+  keeping brittle free-text parsing out of the deterministic migrator. Cards version on their own
+  `format_gen` lineage, independent of `system/` docs.
 
 ### Changed
-- **Per-kind, transform-driven migration.** Each file kind (system doc, issue card) advances on its own
-  format generation; the migrator brings a file only up to *its own kind's* latest generation. So a
-  release that changes one kind **no longer rewrites the other** — adding card headers does not touch
-  `system/` docs.
 - **The version field is renamed `plugin_schema` -> `format_gen`** in every file and in
   `.rag-meta.json`, and means "the format generation this file conforms to" (a monotonic integer,
   decoupled from the plugin SemVer). `rag-migrate` **sweeps** the legacy `plugin_schema` name to
   `format_gen` and reads either (plus the older `schema` key) so corpora from any prior version upgrade.
+- **`bin/rag-migrate` scope is structure + `system/` docs only** — it no longer touches issue cards
+  (see the card-upgrade step above), so a card-format change never rewrites `system/` docs.
 
 ## [0.4.0] - 2026-06-12
 

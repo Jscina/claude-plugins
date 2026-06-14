@@ -4,10 +4,11 @@ rag-migrate — bring an existing rag-memory/ corpus up to the current plugin fo
 
 Idempotent and dry-run by default. Safe to re-run.
 
-Files self-describe via a `format_gen` integer in their frontmatter header (legacy name `plugin_schema`
-is swept to `format_gen` on migration). Each KIND of file is brought only up to its own kind's latest
-format generation (system docs and issue cards version independently), so a release that changes one
-kind never rewrites the other.
+Scope: rag-migrate manages the corpus STRUCTURE and SYSTEM/ docs. Issue cards are deliberately out of
+scope — they version independently via their own `format_gen` and are upgraded by the /rag:migrate
+skill (the AI rewrites each card to the current template); `rag-new-card` stamps new cards. System
+docs self-describe via a `format_gen` integer in their frontmatter header (legacy name `plugin_schema`
+is swept to `format_gen` on migration).
 
 What it does (only what's needed):
   * creates missing lifecycle dirs (issues/backlog, issues/done; plus any missing
@@ -18,15 +19,11 @@ What it does (only what's needed):
     files are kept on disk)
   * refreshes generated docs (README.md, issues/README.md, BENCHMARKS.md, system/README.md)
     ONLY when they still match a known old template (never clobbers your edits)
-  * DOC PASS — brings system/ knowledge docs to the doc format generation. A doc with no frontmatter
-    is bootstrapped (title/domain/source_cards/created/updated derived from the **Source** labels and
-    H1 already in it); one that has a header gets its format_gen swept/stamped. Body never touched.
-    Scans every subfolder of system/ (nesting allowed); README.md and root-level *.md are excluded.
-  * CARD PASS — brings each issue card's context.md (in backlog/active/done/archive) to the card format
-    generation, whenever behind. A card with no header is bootstrapped from its Issue Summary fields;
-    trace.md/benchmarks.md are left alone (their entry blocks would collide with a header). Body never
-    touched.
-  * stamps .rag-meta.json with the current corpus format_gen (high-water across kinds)
+  * brings system/ knowledge docs to the doc format generation. A doc with no frontmatter is
+    bootstrapped (title/domain/source_cards/created/updated derived from the **Source** labels and H1
+    already in it); one that has a header gets its format_gen swept/stamped. Body never touched. Scans
+    every subfolder of system/ (nesting allowed); README.md and root-level *.md are excluded.
+  * stamps .rag-meta.json with the current system-doc format_gen
 
 Usage:
   rag-migrate [--root PATH]            # dry-run: print the plan
@@ -49,11 +46,11 @@ from pathlib import Path
 META_FILE = ".rag-meta.json"
 GITIGNORE_TEMPLATE = "corpus-gitignore"
 
-# The format generation at which each KIND of file's on-disk format last changed. The migrator brings
-# a file only up to its own kind's generation, so a release that changes one kind never rewrites the
-# other. Kind is obvious from location: system/ = doc, issues/.../context.md = card.
-LATEST_GEN = {"doc": 3, "card": 4}
-CORPUS_GEN = max(LATEST_GEN.values())  # high-water mark stamped into .rag-meta.json (format_gen)
+# rag-migrate manages the corpus structure and system/ knowledge docs only. DOC_GEN is the system-doc
+# format generation (and the value stamped into .rag-meta.json). Issue cards are deliberately NOT
+# migrated here — they version independently via their own `format_gen` and are upgraded by the
+# /rag:migrate skill (AI rewrites each card to the current template). `rag-new-card` stamps new cards.
+DOC_GEN = 3
 
 REQUIRED_DIRS = (
     "issues/backlog", "issues/active", "issues/done", "issues/archive",
@@ -86,14 +83,6 @@ H1_RE = re.compile(r"^#\s+(.+?)\s*$", re.M)
 # format_gen on migration). FORMAT_GEN_RE captures the integer value of either key.
 FORMAT_GEN_KEYS = ("format_gen", "plugin_schema")
 FORMAT_GEN_RE = re.compile(r"^(?:format_gen|plugin_schema):\s*(\d+)\s*$")
-
-# Issue cards: the card pass walks context.md in each lifecycle dir. The header is bootstrapped from the
-# "## Issue Summary" bold-label fields the card templates already write.
-CARD_DIRS = ("backlog", "active", "done", "archive")
-# The Issue Summary fields are markdown list items ("- **Card ID**: ..."), so allow an optional
-# leading list marker before the bold label.
-CARD_ID_RE = re.compile(r"^\s*[-*]?\s*\*\*Card ID\*\*:\s*(.+?)\s*$", re.M)
-CARD_OPENED_RE = re.compile(r"^\s*[-*]?\s*\*\*Date Opened\*\*:\s*(.+?)\s*$", re.M)
 
 
 def sha256(text: str) -> str:
@@ -215,49 +204,6 @@ def _build_doc_header(path: Path, base: Path, target: int) -> str:
     return "\n".join(lines) + "\n\n" + text
 
 
-def _yaml_scalar(v: str) -> str:
-    """A YAML-safe scalar: '' if empty (caller writes a bare `key:`), double-quoted when the value
-    contains a colon / comment marker or starts with an indicator character, else plain."""
-    v = v.strip()
-    if not v:
-        return ""
-    if ":" in v or "#" in v or v[0] in "-?,[]{}&*!|>'\"%@`":
-        return _yaml_dq(v)
-    return v
-
-
-def _build_card_header(ctx: Path, target: int) -> str:
-    """Bootstrap a frontmatter header for an issue card's context.md, from its Issue Summary fields.
-
-    `source` is intentionally NOT carried in the header — origin systems (ADO, etc.) go stale over time
-    and add no durable query value; it stays in the body's Issue Summary. Lifecycle state is
-    directory-derived (not stored here). The body is never modified."""
-    text = ctx.read_text(encoding="utf-8")
-    m_id = CARD_ID_RE.search(text)
-    card_id = m_id.group(1).strip() if m_id else ctx.parent.name
-    m_op = CARD_OPENED_RE.search(text)
-    opened = m_op.group(1).strip() if m_op else ""
-    m_h1 = H1_RE.search(text)
-    h1 = m_h1.group(1).strip() if m_h1 else ""
-    title = h1 if (h1 and h1 != card_id) else ""  # H1 is usually just the id -> leave title blank
-
-    def fld(key: str, val: str) -> str:
-        s = _yaml_scalar(val)
-        return f"{key}: {s}" if s else f"{key}:"
-
-    lines = [
-        "---",
-        fld("card_id", card_id),
-        f"title: {_yaml_dq(title)}",
-        fld("opened", opened),
-        "closed:",
-        f"format_gen: {target}",
-        "tags: []",
-        "---",
-    ]
-    return "\n".join(lines) + "\n\n" + text
-
-
 def _ensure_format_gen(text: str, target: int) -> str | None:
     """A file with a frontmatter header: ensure a `format_gen` field is present and >= target.
 
@@ -319,31 +265,6 @@ def migrate_doc(path: Path, base: Path, target: int):
     return ("add frontmatter to", _build_doc_header(path, base, target))
 
 
-def iter_cards(root: Path):
-    """Yield each issue card's context.md across all lifecycle dirs (backlog/active/done/archive)."""
-    issues = root / "issues"
-    for sub in CARD_DIRS:
-        d = issues / sub
-        if not d.is_dir():
-            continue
-        for card in sorted(d.iterdir()):
-            ctx = card / "context.md"
-            if card.is_dir() and ctx.is_file():
-                yield ctx
-
-
-def migrate_card(ctx: Path, target: int):
-    """Bring one issue card's context.md to the card format generation. Returns (label, new_text) or None.
-
-    - No frontmatter  -> bootstrap a header from the Issue Summary fields, stamped format_gen.
-    - Has frontmatter -> ensure/sweep format_gen. The body (Issue Summary etc.) is never modified."""
-    text = ctx.read_text(encoding="utf-8")
-    if text.startswith("---\n") or text.startswith("---\r"):
-        updated = _ensure_format_gen(text, target)
-        return None if updated is None else ("update card header on", updated)
-    return ("add card header to", _build_card_header(ctx, target))
-
-
 def build_plan(root: Path, templates: Path, corpus_gen: int, meta_text: str):
     """Return list of (category, message, action|None). None action == advisory warning."""
     actions = []
@@ -380,27 +301,28 @@ def build_plan(root: Path, templates: Path, corpus_gen: int, meta_text: str):
         else:
             actions.append(("doc", f"WARN: {rel} was modified — left as-is (update by hand if needed)", None))
 
-    # Doc pass: system/ knowledge docs, brought only up to the doc generation (no churn on a
-    # card-only release). Also sweeps the legacy plugin_schema field to format_gen.
+    # Doc pass: system/ knowledge docs, brought up to the doc generation. Also sweeps the legacy
+    # plugin_schema field to format_gen. (Issue cards are upgraded by the /rag:migrate skill, not here.)
     base = root / "system"
     for doc in iter_system_docs(base):
-        res = migrate_doc(doc, base, LATEST_GEN["doc"])
+        res = migrate_doc(doc, base, DOC_GEN)
         if res is not None:
             label, new_text = res
             rel = doc.relative_to(root).as_posix()
             actions.append(("doc-header", f"{label} {rel}", ("write", doc, new_text)))
 
-    # Card pass: each card's context.md, brought up to the card generation, whenever behind.
-    for ctx in iter_cards(root):
-        res = migrate_card(ctx, LATEST_GEN["card"])
-        if res is not None:
-            label, new_text = res
-            rel = ctx.relative_to(root).as_posix()
-            actions.append(("card-header", f"{label} {rel}", ("write", ctx, new_text)))
-
-    if read_corpus_gen(root) < corpus_gen:
+    # Stamp .rag-meta.json when it's behind OR still uses a legacy key (sweep `plugin_schema`/`schema`
+    # -> `format_gen` even when the value is unchanged).
+    meta_path = root / META_FILE
+    needs_meta = read_corpus_gen(root) < corpus_gen
+    if not needs_meta and meta_path.is_file():
+        try:
+            needs_meta = "format_gen" not in json.loads(meta_path.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            needs_meta = True
+    if needs_meta:
         actions.append(("meta", f"stamp {META_FILE} (format_gen {corpus_gen})",
-                        ("write", root / META_FILE, meta_text)))
+                        ("write", meta_path, meta_text)))
 
     return actions
 
@@ -439,9 +361,9 @@ def main(argv=None) -> int:
         print(f"rag-migrate: error: {e}", file=sys.stderr)
         return 2
 
-    # The corpus generation is the script's high-water constant; the serialized .rag-meta.json content
-    # comes from the shipped template (canonical form).
-    corpus_gen = CORPUS_GEN
+    # The corpus generation rag-migrate manages is the system-doc generation; the serialized
+    # .rag-meta.json content comes from the shipped template (canonical form).
+    corpus_gen = DOC_GEN
     meta_text = json.dumps({"format_gen": corpus_gen, "plugin": "rag"}, indent=2) + "\n"
     meta_tmpl = templates / "rag-meta.json"
     if meta_tmpl.is_file():
