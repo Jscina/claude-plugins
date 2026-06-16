@@ -5,15 +5,17 @@ description: Upgrade an existing rag-memory/ corpus that was initialized by an o
 
 # RAG Migrate
 
-Bring an existing `rag-memory/` corpus up to the current plugin schema. A corpus created by an older
-plugin version is missing the commit boundary (`.gitignore`), the `backlog/` and `done/` lifecycle
-dirs, the `.rag-meta.json` version stamp, the refreshed instruction docs, and (schema 3) the YAML
-frontmatter on `system/` knowledge docs — so the current guarantees **silently don't apply** until
-you migrate (most importantly, `trace.md` keeps getting committed, and `system/` docs stay
-machine-unreadable).
+Bring an existing `rag-memory/` corpus up to current. A corpus created by an older plugin version is
+missing the commit boundary (`.gitignore`), the `backlog/` and `done/` lifecycle dirs, the
+`.rag-meta.json` stamp, the refreshed instruction docs, the YAML frontmatter on `system/` knowledge
+docs, and the header on issue cards' `context.md` — so the current guarantees **silently don't apply**
+until you migrate (most importantly, `trace.md` keeps getting committed, and `system/` docs and cards
+stay machine-unreadable).
 
-Driven by the bundled `bin/rag-migrate` script (on PATH when the plugin loads). It is **idempotent
-and dry-run by default**, so it is safe to run anytime.
+The deterministic `bin/rag-migrate` script (on PATH when the plugin loads; **idempotent and dry-run by
+default**) does all of it: structure, `system/` docs, **and** a no-parse header stamp on issue cards'
+`context.md`. Enriching a card's content (filling `title`/`opened`, sharpening the body) is a separate,
+optional, reviewed step — `/rag:enrich` — never required to upgrade between versions.
 
 ## When to use
 
@@ -21,37 +23,47 @@ and dry-run by default**, so it is safe to run anytime.
 - When `/rag:init` or the `memory` orchestrator reports the corpus is un-migrated.
 - When you notice `trace.md` files being committed, or `issues/backlog/` / `issues/done/` missing.
 
-## Workflow
+`bin/rag-migrate` does it all deterministically: structure, `system/` docs, and a **no-parse card
+header stamp** (`card_id` from the directory name; `title`/`opened`/`closed`/`tags` left empty). The
+stamp never parses a card body — that is what kept earlier attempts brittle. Filling those empty fields
+and sharpening content is the optional, reviewed `/rag:enrich` pass, kept separate so upgrading between
+versions stays review-free.
+
+## Part 1 — `bin/rag-migrate` (structure + system/ docs)
 
 1. **Check.** `rag-migrate --check` exits `10` if migration is needed, `0` if up-to-date.
 2. **Preview (dry-run).** Run `rag-migrate` (optionally `--root <path>`). It prints the plan —
    missing dirs, `.gitignore` to write, git-tracked local-state files to untrack, hash-gated doc
-   refreshes, and the schema stamp. Nothing is changed.
+   refreshes, the `system/` doc headers, and the `.rag-meta.json` stamp. Nothing is changed.
 3. **Apply.** Run `rag-migrate --apply`. It performs the plan and, for a git corpus, runs
    `git rm --cached` on every tracked `trace.md` and `issues/active|backlog|done` file (kept on
    disk) so the boundary takes effect.
-4. **Commit.** Follow the printed guidance: `git add -A` then commit the new `.gitignore`,
-   `.rag-meta.json`, refreshed READMEs, and the trace untrackings.
+4. **Commit.** Follow the printed guidance.
 
-## What it will and won't touch
-
+What `bin/rag-migrate` will and won't touch:
 - **Creates** missing `issues/backlog/`, `issues/done/` (and any missing `archive/` or `system/*`).
 - **Writes** `.gitignore` only if absent; if one exists but lacks `**/trace.md`, it warns instead of editing yours.
 - **Refreshes** `README.md`, `issues/README.md`, `BENCHMARKS.md`, `system/README.md` **only if they
   still match a known old template** (hash check). If you edited them, it leaves them and warns.
-- **Brings `system/` knowledge docs to the current schema generation** (schema 3+). Docs are
-  **self-describing** via a `plugin_schema` field in their frontmatter, so the migration is
-  forward-only and idempotent:
-  - a doc with **no frontmatter** is bootstrapped — a header (`title`/`domain`/`source_cards`/
-    `created`/`updated`/`status`/`plugin_schema`/`tags`) is *prepended*, derived from the `**Source**`
-    labels and H1 already in the doc;
-  - a doc that **already has frontmatter** just gets its `plugin_schema` stamped/bumped to current;
-  - a doc **already at the current `plugin_schema`** is skipped.
-  It writes only the header — the body is never edited. The scan covers **every subfolder of
-  `system/`** (nesting allowed); `domain` is the doc's path under `system/`. `README.md` files and any
-  `*.md` directly under `system/` are excluded. No per-version hash table and no replaying intermediate
-  schemas — the doc itself says where it is.
-- **Never** deletes a card, edits the *body* of a `system/` doc, or touches legacy `issues/closed/`.
+- **Brings `system/` knowledge docs to the doc `format_gen`** (self-describing). A doc with no
+  frontmatter is bootstrapped (header derived from the `**Source**` labels and H1 already in it); one
+  with a header gets its `format_gen` swept (legacy `plugin_schema` -> `format_gen`)/stamped; one
+  already current is skipped. Writes only the header — **the body is never edited**. Scans every
+  subfolder of `system/` (nesting allowed); `README.md` and root-level `*.md` are excluded.
+- **Stamps** each issue card's `context.md` with a deterministic no-parse header (`card_id` from the dir
+  name; other fields empty), or sweeps/stamps `format_gen` on a carded one. **Never** reads or edits a
+  card *body*, touches `trace.md`/`benchmarks.md`, deletes a card, or touches legacy `issues/closed/`.
+
+## Part 2 — (optional) enrich cards with `/rag:enrich`
+
+Part 1 already gives every card a current header, but a freshly stamped card has empty `title`/`opened`
+(the stamp never parses a body). To fill those and sharpen content, run the opt-in, **reviewed**
+`/rag:enrich` pass. It is **not** required to be up to date — it is a content step you choose to run.
+
+`/rag:enrich` reads the card body (the parsing migration avoids), fills `title`/`opened` (and `closed`
+if known), sharpens the template sections, and leaves `card_id`/`format_gen` and `trace.md`/
+`benchmarks.md` untouched. New cards already carry a filled header (`rag-new-card` via `/rag:card`), so
+enrichment is only for older or thin cards. See `skills/enrich/SKILL.md`.
 
 ## Key details
 

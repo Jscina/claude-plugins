@@ -1,3 +1,12 @@
+---
+card_id: {{CARD_ID}}
+title: ""
+opened: {{DATE}}
+closed:
+format_gen: 1
+tags: []
+---
+
 # {{CARD_ID}}
 
 ## Issue Summary

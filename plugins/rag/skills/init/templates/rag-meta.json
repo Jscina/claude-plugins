@@ -1,4 +1,7 @@
 {
-  "plugin_schema": 3,
+  "format_gen": {
+    "doc": 3,
+    "card": 1
+  },
   "plugin": "rag"
 }

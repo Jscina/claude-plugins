@@ -1,0 +1,5 @@
+# Dev-only dependencies for running the test suite (tests/).
+# Shipped plugin code stays standard-library-only; pytest is never bundled.
+#   python3 -m pip install -r requirements-dev.txt
+#   python3 -m pytest
+pytest>=7
