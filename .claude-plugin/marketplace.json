@@ -16,7 +16,7 @@
         "path": "plugins/rag",
         "ref": "rag--v0.5.0"
       },
-      "description": "Two-layer RAG memory system for investigation work — System Knowledge (durable, versioned) and Issue Memory (active cards). Bundles /rag:init, /rag:card, /rag:trace, /rag:promote, /rag:context, and the /rag:memory orchestrator.",
+      "description": "Two-layer RAG memory system for investigation work — System Knowledge (durable, versioned) and Issue Memory (active cards). Bundles /rag:init, /rag:card, /rag:trace, /rag:promote, /rag:context, /rag:enrich, /rag:migrate, and the /rag:memory orchestrator.",
       "keywords": [
         "rag",
         "memory",
