@@ -4,11 +4,12 @@ rag-migrate — bring an existing rag-memory/ corpus up to the current plugin fo
 
 Idempotent and dry-run by default. Safe to re-run.
 
-Scope: rag-migrate manages the corpus STRUCTURE and SYSTEM/ docs. Issue cards are deliberately out of
-scope — they version independently via their own `format_gen` and are upgraded by the /rag:migrate
-skill (the AI rewrites each card to the current template); `rag-new-card` stamps new cards. System
-docs self-describe via a `format_gen` integer in their frontmatter header (legacy name `plugin_schema`
-is swept to `format_gen` on migration).
+Scope: rag-migrate manages the corpus STRUCTURE, SYSTEM/ docs, and a deterministic CARD-header stamp.
+System docs and issue cards each self-describe via a `format_gen` integer in their frontmatter (legacy
+name `plugin_schema` is swept to `format_gen` on migration); the two lineages are INDEPENDENT. The card
+stamp is deterministic and NO-PARSE (card_id = the card directory name; title/opened/closed/tags left
+empty). ENRICHMENT -- filling a card's title/opened from its body -- is a separate opt-in AI pass
+(/rag:enrich), never part of migration. `rag-new-card` stamps fresh cards from the template.
 
 What it does (only what's needed):
   * creates missing lifecycle dirs (issues/backlog, issues/done; plus any missing
@@ -23,7 +24,9 @@ What it does (only what's needed):
     bootstrapped (title/domain/source_cards/created/updated derived from the **Source** labels and H1
     already in it); one that has a header gets its format_gen swept/stamped. Body never touched. Scans
     every subfolder of system/ (nesting allowed); README.md and root-level *.md are excluded.
-  * stamps .rag-meta.json with the current system-doc format_gen
+  * stamps each issue card's context.md with a deterministic no-parse header (trace.md and
+    benchmarks.md are never touched -- their per-entry `---` blocks would collide with a file header)
+  * stamps .rag-meta.json with the per-kind format generations {doc, card}
 
 Usage:
   rag-migrate [--root PATH]            # dry-run: print the plan
@@ -46,11 +49,13 @@ from pathlib import Path
 META_FILE = ".rag-meta.json"
 GITIGNORE_TEMPLATE = "corpus-gitignore"
 
-# rag-migrate manages the corpus structure and system/ knowledge docs only. DOC_GEN is the system-doc
-# format generation (and the value stamped into .rag-meta.json). Issue cards are deliberately NOT
-# migrated here — they version independently via their own `format_gen` and are upgraded by the
-# /rag:migrate skill (AI rewrites each card to the current template). `rag-new-card` stamps new cards.
-DOC_GEN = 3
+# Per-kind format generations. rag-migrate brings system/ docs up to LATEST_GEN["doc"] and issue cards
+# up to LATEST_GEN["card"] (a deterministic, no-parse header stamp), and writes the per-kind map into
+# .rag-meta.json. The lineages are INDEPENDENT: a release that changes one kind never rewrites the
+# other. ENRICHMENT (filling a card's title/opened from its body) is a separate opt-in AI pass
+# (/rag:enrich), never part of migration; `rag-new-card` stamps fresh cards from the template.
+LATEST_GEN = {"doc": 3, "card": 1}
+CARD_LIFECYCLE_DIRS = ("backlog", "active", "done", "archive")
 
 REQUIRED_DIRS = (
     "issues/backlog", "issues/active", "issues/done", "issues/archive",
@@ -120,16 +125,29 @@ def find_corpus_root(override: str | None) -> Path:
     raise FileNotFoundError(f"no rag-memory/ corpus found from {cwd}; pass --root")
 
 
-def read_corpus_gen(root: Path) -> int:
+def read_corpus_gen(root: Path) -> dict[str, int]:
+    """Per-kind corpus generations as {"doc": int, "card": int}.
+
+    Accepts the current per-kind map (`format_gen: {doc, card}`) and every legacy shape: a flat int
+    under `format_gen`/`plugin_schema` (0.4.0)/`schema` (<=0.3.0) is read as the DOC lineage with the
+    card generation defaulting to 0 (cards were unmanaged before they re-entered the migrator); a
+    missing/unreadable meta is {0, 0}; a missing kind in the map defaults to 0."""
+    default = {"doc": 0, "card": 0}
     meta = root / META_FILE
     if not meta.is_file():
-        return 0
+        return dict(default)
     try:
         data = json.loads(meta.read_text(encoding="utf-8"))
-        # current key: format_gen; legacy keys: plugin_schema (0.4.0), schema (<= 0.3.0).
-        return int(data.get("format_gen", data.get("plugin_schema", data.get("schema", 0))))
     except (ValueError, OSError):
-        return 0
+        return dict(default)
+    fg = data.get("format_gen", data.get("plugin_schema", data.get("schema")))
+    if isinstance(fg, dict):
+        return {"doc": int(fg.get("doc", 0)), "card": int(fg.get("card", 0))}
+    if isinstance(fg, bool):  # bool is an int subclass; never a generation
+        return dict(default)
+    if isinstance(fg, int):
+        return {"doc": fg, "card": 0}  # legacy flat int = the doc lineage; cards were unmanaged
+    return dict(default)
 
 
 def git_tracked_local_state(root: Path) -> list[str]:
@@ -265,7 +283,56 @@ def migrate_doc(path: Path, base: Path, target: int):
     return ("add frontmatter to", _build_doc_header(path, base, target))
 
 
-def build_plan(root: Path, templates: Path, corpus_gen: int, meta_text: str):
+def iter_cards(root: Path):
+    """Yield each issue card's context.md across all lifecycle dirs.
+
+    Walks issues/{backlog,active,done,archive}/*/context.md. Only context.md is a card-pass target:
+    trace.md and benchmarks.md use per-entry `---` blocks that a file-level frontmatter header would
+    collide with, so they are never touched. Non-directory entries (e.g. ._AppleDouble files) and
+    hidden dirs are skipped."""
+    for state in CARD_LIFECYCLE_DIRS:
+        base = root / "issues" / state
+        if not base.is_dir():
+            continue
+        for card_dir in sorted(base.iterdir()):
+            if not card_dir.is_dir() or card_dir.name.startswith("."):
+                continue
+            ctx = card_dir / "context.md"
+            if ctx.is_file():
+                yield ctx
+
+
+def _build_card_header(path: Path, target: int) -> str:
+    """Bootstrap a header for a card context.md that has none. DETERMINISTIC and NO-PARSE: card_id is
+    the card's DIRECTORY name; title/opened/closed/tags are left empty (enrichment, or rag-new-card for
+    fresh cards, fills them later). The body is never read for content nor modified -- this is exactly
+    why the stamp cannot reproduce the free-text parsing bugs that motivated the rework."""
+    body = path.read_text(encoding="utf-8")
+    header = "\n".join([
+        "---",
+        f"card_id: {path.parent.name}",
+        'title: ""',
+        "opened:",
+        "closed:",
+        f"format_gen: {target}",
+        "tags: []",
+        "---",
+    ])
+    return header + "\n\n" + body
+
+
+def migrate_card(path: Path, target: int):
+    """Bring one issue card's context.md to the card format generation. Returns (label, new_text) or
+    None if already current. No frontmatter -> deterministic no-parse bootstrap; has frontmatter ->
+    ensure/sweep format_gen (rename legacy plugin_schema, bump only if behind). Idempotent."""
+    text = path.read_text(encoding="utf-8")
+    if text.startswith("---\n") or text.startswith("---\r"):
+        updated = _ensure_format_gen(text, target)
+        return None if updated is None else ("update card header on", updated)
+    return ("add card header to", _build_card_header(path, target))
+
+
+def build_plan(root: Path, templates: Path, meta_text: str):
     """Return list of (category, message, action|None). None action == advisory warning."""
     actions = []
 
@@ -302,26 +369,41 @@ def build_plan(root: Path, templates: Path, corpus_gen: int, meta_text: str):
             actions.append(("doc", f"WARN: {rel} was modified — left as-is (update by hand if needed)", None))
 
     # Doc pass: system/ knowledge docs, brought up to the doc generation. Also sweeps the legacy
-    # plugin_schema field to format_gen. (Issue cards are upgraded by the /rag:migrate skill, not here.)
+    # plugin_schema field to format_gen. Body never touched.
     base = root / "system"
     for doc in iter_system_docs(base):
-        res = migrate_doc(doc, base, DOC_GEN)
+        res = migrate_doc(doc, base, LATEST_GEN["doc"])
         if res is not None:
             label, new_text = res
             rel = doc.relative_to(root).as_posix()
             actions.append(("doc-header", f"{label} {rel}", ("write", doc, new_text)))
 
-    # Stamp .rag-meta.json when it's behind OR still uses a legacy key (sweep `plugin_schema`/`schema`
-    # -> `format_gen` even when the value is unchanged).
+    # Card pass: deterministic, no-parse stamp of each issue card's context.md (trace.md and
+    # benchmarks.md are never touched). Headerless cards are bootstrapped from the directory name;
+    # carded ones have their format_gen swept/stamped.
+    for ctx in iter_cards(root):
+        res = migrate_card(ctx, LATEST_GEN["card"])
+        if res is not None:
+            label, new_text = res
+            rel = ctx.relative_to(root).as_posix()
+            actions.append(("card-header", f"{label} {rel}", ("write", ctx, new_text)))
+
+    # Stamp .rag-meta.json to the canonical per-kind map when it is missing, legacy-shaped (a flat int
+    # or a legacy key), or behind on either kind. Idempotent once it is the current {doc, card} map.
     meta_path = root / META_FILE
-    needs_meta = read_corpus_gen(root) < corpus_gen
-    if not needs_meta and meta_path.is_file():
+    cur = read_corpus_gen(root)
+    needs_meta = True
+    if meta_path.is_file():
         try:
-            needs_meta = "format_gen" not in json.loads(meta_path.read_text(encoding="utf-8"))
+            is_map = isinstance(json.loads(meta_path.read_text(encoding="utf-8")).get("format_gen"), dict)
         except (ValueError, OSError):
-            needs_meta = True
+            is_map = False
+        needs_meta = (not is_map
+                      or cur["doc"] < LATEST_GEN["doc"]
+                      or cur["card"] < LATEST_GEN["card"])
     if needs_meta:
-        actions.append(("meta", f"stamp {META_FILE} (format_gen {corpus_gen})",
+        actions.append(("meta",
+                        f"stamp {META_FILE} (format_gen doc {LATEST_GEN['doc']}, card {LATEST_GEN['card']})",
                         ("write", meta_path, meta_text)))
 
     return actions
@@ -361,29 +443,31 @@ def main(argv=None) -> int:
         print(f"rag-migrate: error: {e}", file=sys.stderr)
         return 2
 
-    # The corpus generation rag-migrate manages is the system-doc generation; the serialized
-    # .rag-meta.json content comes from the shipped template (canonical form).
-    corpus_gen = DOC_GEN
-    meta_text = json.dumps({"format_gen": corpus_gen, "plugin": "rag"}, indent=2) + "\n"
+    # The corpus generations rag-migrate manages are per-kind (system docs + issue cards); the
+    # serialized .rag-meta.json content comes from the shipped template (canonical form).
+    meta_text = json.dumps({"format_gen": dict(LATEST_GEN), "plugin": "rag"}, indent=2) + "\n"
     meta_tmpl = templates / "rag-meta.json"
     if meta_tmpl.is_file():
         meta_text = meta_tmpl.read_text(encoding="utf-8")
 
-    actions = build_plan(root, templates, corpus_gen, meta_text)
+    actions = build_plan(root, templates, meta_text)
     current = read_corpus_gen(root)
+    behind = current["doc"] < LATEST_GEN["doc"] or current["card"] < LATEST_GEN["card"]
+    gen_str = (f"doc {current['doc']}->{LATEST_GEN['doc']}, "
+               f"card {current['card']}->{LATEST_GEN['card']}")
 
     if args.check:
-        need = bool([a for a in actions if a[2] is not None]) or current < corpus_gen
+        need = bool([a for a in actions if a[2] is not None]) or behind
         print(f"rag-migrate: {'migration needed' if need else 'up to date'} "
-              f"(corpus {root}, format_gen {current} -> {corpus_gen})")
+              f"(corpus {root}, format_gen {gen_str})")
         return 10 if need else 0
 
     if not actions:
-        print(f"rag-migrate: corpus is up to date (format_gen {corpus_gen}): {root}")
+        print(f"rag-migrate: corpus is up to date (format_gen {gen_str}): {root}")
         return 0
 
     mode = "APPLY" if args.apply else "DRY-RUN"
-    print(f"rag-migrate [{mode}] — corpus: {root} (format_gen {current} -> {corpus_gen})\n")
+    print(f"rag-migrate [{mode}] — corpus: {root} (format_gen {gen_str})\n")
     warnings = []
     for cat, msg, act in actions:
         if act is None:
@@ -402,8 +486,7 @@ def main(argv=None) -> int:
     print("Migration applied. Review and commit the boundary changes:")
     print(f"  cd {root}")
     print("  git status            # untracked traces are now staged deletions; new files are untracked")
-    print("  git add -A && git commit -m 'chore(rag): migrate corpus to format_gen "
-          f"{corpus_gen}'")
+    print("  git add -A && git commit -m 'chore(rag): migrate corpus format generation'")
     if warnings:
         print("\nManual follow-ups:")
         for w in warnings:
