@@ -26,3 +26,8 @@ plugins/decision-engine/mcp-server/node_modules/
 # Python bytecode (rag plugin ships bin/rag-new-card)
 __pycache__/
 *.pyc
+
+# Python dev/test tooling (local only; never committed)
+.venv/
+venv/
+.pytest_cache/
