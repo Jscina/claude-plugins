@@ -12,9 +12,10 @@ docs, and the header on issue cards' `context.md` — so the current guarantees 
 until you migrate (most importantly, `trace.md` keeps getting committed, and `system/` docs and cards
 stay machine-unreadable).
 
-Two parts: the deterministic `bin/rag-migrate` script (on PATH when the plugin loads; **idempotent and
-dry-run by default**) handles structure + `system/` docs, and **you** upgrade issue cards with the AI
-step below. The script never touches cards.
+The deterministic `bin/rag-migrate` script (on PATH when the plugin loads; **idempotent and dry-run by
+default**) does all of it: structure, `system/` docs, **and** a no-parse header stamp on issue cards'
+`context.md`. Enriching a card's content (filling `title`/`opened`, sharpening the body) is a separate,
+optional, reviewed step — `/rag:enrich` — never required to upgrade between versions.
 
 ## When to use
 
@@ -22,10 +23,11 @@ step below. The script never touches cards.
 - When `/rag:init` or the `memory` orchestrator reports the corpus is un-migrated.
 - When you notice `trace.md` files being committed, or `issues/backlog/` / `issues/done/` missing.
 
-Migration has **two parts**: the deterministic `bin/rag-migrate` script (structure + `system/` docs),
-and an **AI card-upgrade step** you perform (issue cards). Cards are kept out of the script on purpose —
-parsing free-text card bodies is brittle, and an AI rewriting a card to the template can also *enrich*
-it, with no per-version parsing code to maintain.
+`bin/rag-migrate` does it all deterministically: structure, `system/` docs, and a **no-parse card
+header stamp** (`card_id` from the directory name; `title`/`opened`/`closed`/`tags` left empty). The
+stamp never parses a card body — that is what kept earlier attempts brittle. Filling those empty fields
+and sharpening content is the optional, reviewed `/rag:enrich` pass, kept separate so upgrading between
+versions stays review-free.
 
 ## Part 1 — `bin/rag-migrate` (structure + system/ docs)
 
@@ -48,23 +50,20 @@ What `bin/rag-migrate` will and won't touch:
   with a header gets its `format_gen` swept (legacy `plugin_schema` -> `format_gen`)/stamped; one
   already current is skipped. Writes only the header — **the body is never edited**. Scans every
   subfolder of `system/` (nesting allowed); `README.md` and root-level `*.md` are excluded.
-- **Never** touches issue cards, deletes a card, edits a doc/card body, or touches legacy `issues/closed/`.
+- **Stamps** each issue card's `context.md` with a deterministic no-parse header (`card_id` from the dir
+  name; other fields empty), or sweeps/stamps `format_gen` on a carded one. **Never** reads or edits a
+  card *body*, touches `trace.md`/`benchmarks.md`, deletes a card, or touches legacy `issues/closed/`.
 
-## Part 2 — upgrade issue cards (AI, using the template)
+## Part 2 — (optional) enrich cards with `/rag:enrich`
 
-`bin/rag-migrate` does **not** touch cards. To bring existing cards to the current card format, for each
-`context.md` under `issues/{backlog,active,done,archive}/CARD-*/` whose header is **missing** or whose
-`format_gen` is **below** the current card generation (see `skills/card/templates/context.md`):
+Part 1 already gives every card a current header, but a freshly stamped card has empty `title`/`opened`
+(the stamp never parses a body). To fill those and sharpen content, run the opt-in, **reviewed**
+`/rag:enrich` pass. It is **not** required to be up to date — it is a content step you choose to run.
 
-1. Rewrite `context.md` to match the current card template — add/repair the YAML header
-   (`card_id` from the dir name, `opened`/`title` from the Issue Summary, `closed` if known), and
-   optionally **enrich** the body (sharpen the symptom, fill obvious gaps). Preserve real content.
-2. Stamp the header's `format_gen` to the current card generation.
-3. Leave `trace.md` and `benchmarks.md` alone — their `---`-fenced entry blocks would collide with a
-   file-level header.
-
-New cards already carry the header (`rag-new-card` via `/rag:card`), so this is only for cards created
-by an older plugin version.
+`/rag:enrich` reads the card body (the parsing migration avoids), fills `title`/`opened` (and `closed`
+if known), sharpens the template sections, and leaves `card_id`/`format_gen` and `trace.md`/
+`benchmarks.md` untouched. New cards already carry a filled header (`rag-new-card` via `/rag:card`), so
+enrichment is only for older or thin cards. See `skills/enrich/SKILL.md`.
 
 ## Key details
 
