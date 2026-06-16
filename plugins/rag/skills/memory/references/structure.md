@@ -106,12 +106,16 @@ tags: []
 | `format_gen` | The format generation this file conforms to (a monotonic integer). Makes the file **self-describing**, so an upgrade reads it to decide whether the file needs updating — no content guessing, no per-version hash tables, no replaying intermediate schemas. **Docs and cards have independent `format_gen` lineages** (a doc's `3` and a card's `1` are unrelated counters); each only advances when *its own kind's* format changes. |
 | `tags` | Free-form; a corpus may use these for its own finer-grained taxonomy. |
 
-> **Self-describing migration.** `rag-migrate` (deterministic) brings **system/ docs** to the current
-> doc generation: it reads each doc's `format_gen` and bootstraps a header from labels already in the
-> body when absent, idempotently and without altering the body. The scan covers every subfolder of
-> `system/` (nesting allowed), and the legacy field name `plugin_schema` is swept to `format_gen`.
-> **Issue cards are out of `rag-migrate`'s scope** — they are upgraded by the `/rag:migrate` skill (the
-> AI rewrites each card to the current card template; see below).
+> **Self-describing migration.** `rag-migrate` (deterministic) brings **both kinds** to their current
+> generation. For **system/ docs** it reads each doc's `format_gen`, bootstrapping a header from labels
+> already in the body when absent, idempotently and without altering the body (the scan covers every
+> subfolder of `system/`; nesting allowed). For **issue cards** it stamps each `context.md` with a
+> **deterministic, no-parse** header (`card_id` from the directory name; `title`/`opened`/`closed`/`tags`
+> left empty) — the card body is never read, which is what keeps the stamp free of the free-text parsing
+> bugs that motivated this design. The legacy field name `plugin_schema` is swept to `format_gen` for
+> both. `.rag-meta.json` records the **per-kind** current generations as
+> `{"format_gen": {"doc": N, "card": M}, "plugin": "rag"}`. Filling a card's empty `title`/`opened` and
+> sharpening its body is the separate, opt-in, reviewed `/rag:enrich` pass — never part of migration.
 
 ## Issue Card Header Format
 
@@ -139,11 +143,13 @@ tags: []
 ```
 
 The card's **Source** stays in the body's Issue Summary (not the header) — origin systems go stale
-over time and add no durable query value. **New** cards are stamped with this header by `rag-new-card`
-(via `/rag:card`). **Existing** cards are upgraded by the `/rag:migrate` skill: when a card's header is
-missing or its `format_gen` is below the current card generation, the AI rewrites `context.md` to match
-this template — preserving (and optionally enriching) the body — then stamps `format_gen`. This keeps
-the brittle free-text parsing out of the deterministic migrator.
+over time and add no durable query value. **New** cards are stamped with a filled header by `rag-new-card`
+(via `/rag:card`). **Existing** cards are stamped by `rag-migrate` itself: when a card's header is missing
+or its `format_gen` is below the current card generation, the migrator adds/sweeps the header
+**deterministically and without parsing** — `card_id` from the directory name, `title`/`opened`/`closed`
+left empty — and never reads or edits the body. Filling those empty fields and sharpening the body is the
+optional, reviewed `/rag:enrich` pass. `closed` is stamped by the close ceremony when the card is filed to
+`done/`/`archive/`.
 
 ## Trace Entry Format
 

@@ -9,7 +9,7 @@ This is the master skill for the RAG memory system. It routes requests to the co
 
 ## Sub-skills
 
-These five sibling skills (also under the `rag` plugin) handle individual operations. Each has its own SKILL.md with detailed instructions. When routing to one, read its SKILL.md and follow its workflow.
+These sibling skills (also under the `rag` plugin) handle individual operations. Each has its own SKILL.md with detailed instructions. When routing to one, read its SKILL.md and follow its workflow.
 
 | Skill | Slash | Purpose | When to route |
 |---|---|---|---|
@@ -19,6 +19,7 @@ These five sibling skills (also under the `rag` plugin) handle individual operat
 | `trace` | `/rag:trace` | Append an entry to a card's `trace.md` | User wants to log a finding, rule-out, hypothesis, or next step |
 | `promote` | `/rag:promote` | Promote a finding to `system/` | User has a confirmed durable finding to preserve |
 | `context` | `/rag:context` | Assemble a context payload for an AI session | User is starting a new analysis session and needs to load existing knowledge |
+| `enrich` | `/rag:enrich` | Fill a card header's `title`/`opened` from the body + sharpen it (opt-in, reviewed) | A migrated card has empty header fields, or a card's `context.md` is thin/stale |
 
 ## Workflow state machine
 
@@ -74,7 +75,7 @@ Most RAG interactions follow a predictable lifecycle. Use this to figure out whe
 
 When the user sends a message, determine which sub-skill to invoke:
 
-1. **Check if rag-memory/ exists.** If the user references RAG but no directory is found, route to `/rag:init` first. Ask where they want it created. **If it exists, check it's current** — run `rag-migrate --check` (or look for `.rag-meta.json` with the current `schema`, plus `issues/backlog/`, `issues/done/`, and `.gitignore`). If it's from an older plugin version, route to `/rag:migrate` before other operations; otherwise the commit boundary won't apply and `trace.md` may be getting committed.
+1. **Check if rag-memory/ exists.** If the user references RAG but no directory is found, route to `/rag:init` first. Ask where they want it created. **If it exists, check it's current** — run `rag-migrate --check` (or look for `.rag-meta.json` with the current `format_gen` map, plus `issues/backlog/`, `issues/done/`, and `.gitignore`). If it's from an older plugin version, route to `/rag:migrate` before other operations; otherwise the commit boundary won't apply and `trace.md` may be getting committed.
 
 2. **Match intent to sub-skill.** Use these patterns:
 
@@ -107,9 +108,14 @@ This isn't a separate sub-skill because it's a short orchestration sequence:
    update its status to `rejected`.
 4. **Ask the destination:** `done/` (finished locally, **not committed**) or `archive/` (durable,
    **committed** shared record).
-5. Move the entire `CARD-XXXXX/` directory from `issues/active/` to the chosen `issues/done/` or
+5. **Stamp `closed`.** In the card's `context.md`, set `closed: <today's date>` — but only if `closed:`
+   is empty (preserve a manually-set or already-known date). If the card has no header at all (a
+   pre-stamp corpus), skip and note it rather than fabricate one — run `rag-migrate --apply` first to
+   stamp the header. Never touch `trace.md`/`benchmarks.md`. (`opened` is filled by `rag-new-card` or
+   `/rag:enrich`, not here.)
+6. Move the entire `CARD-XXXXX/` directory from `issues/active/` to the chosen `issues/done/` or
    `issues/archive/`.
-6. If **archived**, remind the user to commit the card's `context.md` + `benchmarks.md` + `artifacts/`
+7. If **archived**, remind the user to commit the card's `context.md` + `benchmarks.md` + `artifacts/`
    (its `trace.md` is gitignored) plus `system/` if anything was promoted. If **done**, nothing is committed.
 
 ## Skill-discovery pass (mining traces)
@@ -142,6 +148,7 @@ If the user asks "what can I do with RAG" or "how do I use this", give them this
 - **New issue?** → `/rag:card` (then provide ticket ID)
 - **During investigation** → `/rag:trace` for findings, rule-outs, hypotheses, next steps
 - **Durable insight?** → `/rag:promote`
+- **Card header thin or empty?** → `/rag:enrich` (fill `title`/`opened`, sharpen — opt-in, reviewed)
 - **New AI session?** → `/rag:context`
 - **Done?** → "close card [card ID]" (orchestrator sweeps the trace, reviews benchmarks, then files it under `done/` or `archive/`)
 

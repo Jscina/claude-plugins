@@ -3,27 +3,36 @@
 All notable changes to the `rag` plugin are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com); the plugin uses semantic versioning.
 
-## [0.5.0] - 2026-06-13
+## [0.5.0] - 2026-06-16
 
 ### Added
 - **Issue-card headers.** Each card's `context.md` now carries a YAML frontmatter header
-  (`card_id`, `title`, `opened`, `closed`, `format_gen`, `tags`) so cards are queryable. The card's
-  origin (`source`) stays in the body's Issue Summary — it goes stale over time and adds no durable
-  query value. Lifecycle state stays directory-derived (not in the header). `trace.md`/`benchmarks.md`
-  are intentionally headerless (their `---`-fenced entry blocks would collide with a file-level header).
-  New cards get the header from `rag-new-card` (via `/rag:card`).
-- **AI card-upgrade step in `/rag:migrate`.** Existing cards are upgraded by the skill, not the script:
-  the AI rewrites each out-of-date `context.md` to the current card template (and may enrich it),
-  keeping brittle free-text parsing out of the deterministic migrator. Cards version on their own
-  `format_gen` lineage, independent of `system/` docs.
+  (`card_id`, `title`, `opened`, `closed`, `format_gen`, `tags`) so cards are queryable and migratable.
+  The card's origin (`source`) stays in the body's Issue Summary — it goes stale over time and adds no
+  durable query value. Lifecycle state stays directory-derived (not in the header). `trace.md`/
+  `benchmarks.md` are intentionally headerless (their `---`-fenced entry blocks would collide with a
+  file-level header). New cards get a filled header from `rag-new-card` (via `/rag:card`).
+- **Deterministic no-parse card stamp in `bin/rag-migrate`.** Existing cards are brought to the current
+  card format by the deterministic migrator itself: it adds/sweeps the header using `card_id` from the
+  **directory name** and leaves `title`/`opened`/`closed`/`tags` empty — it never reads or parses a card
+  body (which is what made earlier parse-the-body attempts brittle). Only `context.md` is touched;
+  `trace.md`/`benchmarks.md` are left alone. Cards version on their own `format_gen` lineage, independent
+  of `system/` docs.
+- **`/rag:enrich` skill.** A separate, opt-in, **reviewed** AI pass that fills a card header's empty
+  `title`/`opened` from the body and sharpens the content. Kept distinct from migration so "upgrade my
+  corpus" stays deterministic and review-free.
+- **`closed:` stamped on close.** The `/rag:memory` close ceremony stamps `closed: <date>`
+  (stamp-if-empty) when a card is filed to `done/`/`archive/`.
 
 ### Changed
 - **The version field is renamed `plugin_schema` -> `format_gen`** in every file and in
   `.rag-meta.json`, and means "the format generation this file conforms to" (a monotonic integer,
   decoupled from the plugin SemVer). `rag-migrate` **sweeps** the legacy `plugin_schema` name to
   `format_gen` and reads either (plus the older `schema` key) so corpora from any prior version upgrade.
-- **`bin/rag-migrate` scope is structure + `system/` docs only** — it no longer touches issue cards
-  (see the card-upgrade step above), so a card-format change never rewrites `system/` docs.
+- **`.rag-meta.json` carries per-kind generations** — `{"format_gen": {"doc": N, "card": M}, ...}` — so
+  docs and cards advance on independent lineages and a card's generation can be checked cheaply.
+  `read_corpus_gen` reads the new map and every legacy shape (a flat int / `plugin_schema` / `schema` is
+  read as the doc generation, card 0).
 
 ## [0.4.0] - 2026-06-12
 
