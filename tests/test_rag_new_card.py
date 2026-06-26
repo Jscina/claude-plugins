@@ -11,7 +11,7 @@ import pytest
 # --- normalize_card_name: the FS-safety / path-traversal sanitizer -------------------
 
 @pytest.mark.parametrize("raw, expected", [
-    ("ADO-40576", "CARD-ADO-40576"),
+    ("ADO-11111", "CARD-ADO-11111"),
     ("CARD-ADO-1", "CARD-ADO-1"),                  # existing CARD- prefix not doubled
     ("card-abc", "CARD-abc"),                       # prefix detection is case-insensitive
     ("#12345", "CARD-12345"),                       # '#' stripped
