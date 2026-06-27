@@ -6,8 +6,9 @@ A personal [Claude Code](https://claude.com/claude-code) plugin marketplace by [
 
 | Plugin | Version | Description |
 |---|---|---|
-| [`rag`](./plugins/rag/) | `0.3.0` | Two-layer RAG memory system — System Knowledge (durable, versioned) and Issue Memory (active cards), with a firm commit boundary and a `backlog`/`active`/`done`/`archive` lifecycle. Skills: `/rag:init`, `/rag:migrate`, `/rag:card`, `/rag:trace`, `/rag:promote`, `/rag:context`, `/rag:memory`. Bundles the `@rag:batman` investigative agent. |
+| [`rag`](./plugins/rag/) | `0.5.0` | Two-layer RAG memory system — System Knowledge (durable, versioned) and Issue Memory (active cards), with a firm commit boundary and a `backlog`/`active`/`done`/`archive` lifecycle. Skills: `/rag:init`, `/rag:migrate`, `/rag:card`, `/rag:trace`, `/rag:promote`, `/rag:context`, `/rag:memory`. Bundles the `@rag:batman` investigative agent. |
 | [`decision-engine`](./plugins/decision-engine/) | `0.1.3` | Personal goal-indexed decision engine. Treats goals as first-class indexed objects, evaluates new inputs against them via reusable workflows (e.g. `house_analyzer`), and persists runs for longitudinal analysis. Ships a session-start agent (`@decision-engineer`), a reactive skill, and an MCP server for state management. |
+| [`homewise`](./plugins/homewise/) | `0.2.0` | Turns a property's listing paperwork (MLS + Seller's Disclosure + extras) into buyer due-diligence documents: a disclosure-driven inspection checklist per home, and across several homes a color-coded comparison sheet plus a combined booklet. Skills: `/homewise:evaluate`, `/homewise:compare`. Portable (reads PDFs natively, emits HTML); compiles to claude.ai Skills via `build-claude-skills.sh`. |
 
 ## Install
 
@@ -22,6 +23,7 @@ Then install a plugin from it:
 ```bash
 claude plugin install rag@nicholas1513-claude-plugins
 claude plugin install decision-engine@nicholas1513-claude-plugins
+claude plugin install homewise@nicholas1513-claude-plugins
 ```
 
 Or, in a Claude Code session:
@@ -30,6 +32,7 @@ Or, in a Claude Code session:
 /plugin marketplace add nicholas1513/claude-plugins
 /plugin install rag@nicholas1513-claude-plugins
 /plugin install decision-engine@nicholas1513-claude-plugins
+/plugin install homewise@nicholas1513-claude-plugins
 ```
 
 If the marketplace was added before a plugin was published, refresh the local cache first:
@@ -100,6 +103,22 @@ Goals live in [`plugins/decision-engine/goals/`](./plugins/decision-engine/goals
 
 See [`plugins/decision-engine/ARCHITECTURE.md`](./plugins/decision-engine/ARCHITECTURE.md) for the full design.
 
+## Usage — `homewise`
+
+After install, the `/homewise:*` skills are available in any Claude Code session:
+
+```
+/homewise:evaluate   → one property's documents → a printable inspection checklist
+/homewise:compare    → several properties → a disclosure comparison sheet + booklet
+                       (evaluates each home first)
+```
+
+Point it at a home's paperwork (a folder, a loose pile, or files dropped in — no fixed layout). It reads the PDFs directly and emits self-contained HTML; for a PDF, run `plugins/homewise/scripts/html2pdf.py <file>` where a renderer is available, or print from the browser.
+
+The same source compiles to uploadable **claude.ai Skills** — run [`plugins/homewise/build-claude-skills.sh`](./plugins/homewise/build-claude-skills.sh) to generate `evaluate` and `compare` skill ZIPs (claude.ai → Settings → Customize → Skills → Create skill → upload).
+
+See [`plugins/homewise/`](./plugins/homewise/) for source.
+
 ## Versioning
 
 Plugins in this marketplace follow semver. Releases are git-tagged using Claude Code's required format:
@@ -132,6 +151,7 @@ Local install during development (no marketplace needed) — point Claude Code a
 git clone https://github.com/nicholas1513/claude-plugins.git
 claude --plugin-dir claude-plugins/plugins/rag
 claude --plugin-dir claude-plugins/plugins/decision-engine
+claude --plugin-dir claude-plugins/plugins/homewise
 ```
 
 Or add the local checkout as a marketplace so installs resolve through the same flow as the published version:

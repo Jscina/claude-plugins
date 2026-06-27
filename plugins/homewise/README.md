@@ -1,57 +1,67 @@
 # homewise
 
-A Claude Code plugin that turns a property's listing paperwork into clean, printable
-**buyer due-diligence documents**. Give it the documents for a home (or several) and it produces
-the same artifacts a careful buyer's agent would assemble by hand: a disclosure-driven inspection
-checklist per home, and - across several homes - a color-coded comparison sheet and a combined
-booklet.
+A Claude plugin that turns a property's listing paperwork into clean, printable **buyer
+due-diligence documents**: a disclosure-driven inspection checklist per home, and - across several
+homes - a color-coded comparison sheet and a combined booklet.
 
 ## Skills
 
 | Skill | Input | Output |
 |---|---|---|
-| `/homewise:evaluate` | One property's documents | `checklist-<slug>.html` - a standalone, printable inspection checklist for that home |
+| `/homewise:evaluate` | One property's documents | `checklist-<slug>.html` - a standalone, printable inspection checklist |
 | `/homewise:compare` | Several properties' documents | `disclosure-comparison.html` (cross-home matrix + per-home flag cards) and `inspection-checklist.html` (combined booklet). Evaluates each home first, so you also get every per-home `checklist-<slug>.html`. |
 
-`compare` is `evaluate` applied to each home and then aggregated - run `evaluate` when you care about
-one house, `compare` when you are weighing several.
+## Portable by design (single source, runs anywhere)
 
-## Giving it the documents (flexible intake)
+homewise is written to a **baseline that works on every surface** - Claude Code, claude.ai, the API:
+it **reads the provided PDFs directly and emits self-contained HTML**, with no external tools required.
+The judgment + design live in one place - `references/evaluation-rubric.md` and `templates/` - so the
+same skill behaves consistently wherever it runs.
 
-There is **no required folder layout or file-naming convention**. Provide the documents whatever way
-is convenient and the skill sorts them out by reading their contents (the property address, the
-disclosure form header, etc.):
+Richer capabilities are **optional enhancements**, used only where they exist and never required:
+- `pdftotext` for cleaner text from a text-based MLS (native reading is the default and handles scanned
+  disclosures fine).
+- `scripts/html2pdf.py` to render a PDF where a browser/Node renderer is available; otherwise you print
+  to PDF from the browser.
 
-- point it at a folder (nested subfolders are fine),
-- drop in a loose pile of PDFs for one or more homes, or
-- add files one home at a time when prompted.
+This is what lets the **claude.ai** build be generated from this same source rather than maintained
+separately (see "claude.ai" below).
 
-Typical per-home documents are an **MLS listing** and a **Seller's Disclosure**, often with extras
-(utility logs, a septic permit, earnest-money / wire instructions, etc.). Only what exists is used;
-nothing is required to be present or named a particular way.
+## Giving it the documents
+
+No required folder layout or filenames. Provide the documents however is convenient (a folder, a loose
+pile, or files dropped into the conversation); homewise classifies each by content (the address, the
+disclosure form header) and groups them by home. Typical per-home docs are an MLS listing and a
+Seller's Disclosure, often with extras (utility log, septic permit, etc.). Only what exists is used.
 
 ## Output
 
-HTML is produced **first** - it is instant, self-contained (inline CSS + JS, no assets), opens in any
-browser, and the checklists autosave your checkboxes and notes to that browser. After the HTML is
-written, the skill **offers to render PDFs** (letter, print-optimized). PDF generation uses a headless
-Chromium via `npx` Puppeteer, so it is the slower, opt-in step - hence HTML-first.
+HTML is produced first - instant, self-contained (inline CSS + JS, no assets), opens in any browser,
+and the checklists autosave checkboxes and notes locally. For a PDF, either run
+`scripts/html2pdf.py <file>` (where a renderer is available - it tries a local Chrome/Chromium,
+wkhtmltopdf, then a cached puppeteer install with `--no-sandbox`) or open the HTML and use the
+browser's Print > Save as PDF (the print CSS is tuned for letter paper).
 
-## Requirements
+## claude.ai
 
-- `pdftotext` (poppler) for reading text-based listing PDFs; scanned disclosures are read directly.
-- `node` + `npx` only if you ask for PDF output.
+The same source compiles to uploadable **Skills** for claude.ai (Settings > Customize > Skills >
+Create skill > upload a ZIP; requires code execution). Run `./build-claude-skills.sh` to generate
+self-contained `evaluate` and `compare` skill ZIPs from this plugin (it bundles the shared rubric +
+templates and rewrites asset paths to be relative). On claude.ai the optional PDF step is unavailable,
+so you print to PDF from the browser.
 
 ## Layout
 
 ```
 homewise/
-|-- bin/homewise              # helper: inventory | extract-mls | html2pdf
+|-- build-claude-skills.sh    # compile this plugin into claude.ai upload ZIPs
 |-- references/
-|   `-- evaluation-rubric.md  # shared judgment guide used by both skills
+|   `-- evaluation-rubric.md  # the single source of judgment + conventions
+|-- scripts/
+|   `-- html2pdf.py           # optional PDF renderer (not required, not on PATH)
 |-- templates/
 |   |-- checklist.html        # per-home checklist (also the booklet's per-home section)
-|   |-- comparison.html       # cross-home matrix + flag cards + caution banner
+|   |-- comparison.html       # cross-home matrix + flag cards
 |   `-- booklet.html          # combined cover + per-home sections + recap
 `-- skills/
     |-- evaluate/SKILL.md
@@ -61,5 +71,5 @@ homewise/
 ## Disclaimer
 
 The documents are a buyer's working aid for organizing a professional inspection and negotiation -
-they are **not** an inspection report, appraisal, or professional advice. Every figure should be
-independently verified.
+they are **not** an inspection report, appraisal, or professional advice. Verify every figure
+independently.
