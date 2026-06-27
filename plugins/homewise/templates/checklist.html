@@ -1,0 +1,133 @@
+<!--
+  homewise template: per-home inspection checklist  (skill: /homewise:evaluate)
+  ============================================================================
+  HOW TO USE THIS TEMPLATE
+  - Copy this file's structure verbatim. The <style> block IS the design system - do NOT
+    rewrite it; only substitute the {{ACCENT}} token in :root.
+  - Replace every {{TOKEN}} with real values (see references/evaluation-rubric.md).
+  - Fill the two marked regions (PRIORITY ITEMS, STANDARD PASS) and the disclosure-context
+    paragraph and footer sources with real, per-home content. Delete the example rows.
+  - Keep the autosave <script> exactly as-is.
+  - Style note: do NOT use literal em dashes; use a spaced hyphen " - " (matches the references).
+
+  TOKENS
+    {{HOME_NAME}}     short home name, e.g. Everett
+    {{SLUG}}          kebab-case slug, e.g. everett   (data-home + autosave key)
+    {{COUNTY}}        eyebrow locale, e.g. Floyd County, IN
+    {{ADDR_LINE}}     one-liner: "5106 Everett Ave - Floyds Knobs - Built 1997 - Public water + sewer - owned propane"
+    {{PRICE}}         list price, e.g. $375,000
+    {{ACCENT}}        per-home accent hex. Single home: #2f5d7c. In a set, rotate:
+                      home 1 #2f5d7c (blue), home 2 #4a7a4f (green), home 3 #9c6b3f (brown), then cycle.
+-->
+<title>Inspection Checklist - {{HOME_NAME}}</title>
+<style>
+  :root{--ink:#1d2b3a;--ink-soft:#4a5a6a;--ink-faint:#7e8b97;--paper:#f6f7f8;--card:#fff;--line:#d6dbe0;--line-soft:#e6e9ed;--accent:#2f5d7c;--crit-dot:#c0483a;--crit-bg:#f6e0dc;--crit-fg:#9c3d31;--bar:{{ACCENT}};}
+  *{box-sizing:border-box;}
+  body{margin:0;background:#e9ebee;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.4;-webkit-font-smoothing:antialiased;}
+  .doc{max-width:920px;margin:24px auto;background:var(--paper);padding:34px 40px 26px;box-shadow:0 2px 24px rgba(29,43,58,.14);border-top:6px solid var(--bar);}
+  .eyebrow{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:600;margin:0 0 5px;}
+  h1{font-family:Georgia,"Iowan Old Style","Times New Roman",serif;font-weight:600;font-size:25px;margin:0;}
+  .addr{font-size:12px;color:var(--ink-faint);margin:4px 0 0;}
+  .toprow{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;border-bottom:2px solid var(--ink);padding-bottom:14px;}
+  .price{font-size:17px;font-weight:700;white-space:nowrap;}
+  .fieldline{display:flex;flex-wrap:wrap;gap:4px 28px;margin:12px 0 2px;font-size:12px;color:var(--ink-soft);}
+  .fieldline span{display:inline-flex;align-items:baseline;gap:6px;}
+  .blank{appearance:none;-webkit-appearance:none;display:inline-block;min-width:170px;border:none;border-bottom:1px solid var(--line);background:transparent;font:inherit;color:var(--ink);padding:0 2px;}
+  .blank:focus{outline:none;border-bottom-color:var(--accent);}
+  .grp-title{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:700;margin:16px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:9px;}
+  .grp-title.priority{color:var(--crit-fg);border-bottom-color:#e6c9c1;}
+  .pri-badge{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--crit-fg);background:var(--crit-bg);border-radius:3px;padding:2px 6px;}
+  .grp-title .hint{margin-left:auto;font-weight:400;letter-spacing:.02em;text-transform:none;font-size:10px;color:var(--ink-faint);}
+  ul.checks{list-style:none;margin:0;padding:0;}
+  ul.checks li{display:grid;grid-template-columns:16px 1fr;gap:9px;align-items:start;padding:5px 0 11px;border-bottom:1px solid var(--line);font-size:12px;}
+  ul.checks li:last-child{border-bottom:none;}
+  .chk{appearance:none;-webkit-appearance:none;width:14px;height:14px;border:1.5px solid var(--ink-soft);border-radius:3px;margin:1px 0 0;padding:0;flex:none;background:#fff;cursor:pointer;position:relative;}
+  .chk:checked{background:var(--accent);border-color:var(--accent);}
+  .chk:checked::after{content:"";position:absolute;left:4px;top:1px;width:3px;height:7px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg);}
+  .chk:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  ul.checks .item strong{font-weight:600;}
+  ul.checks .item .why{color:var(--ink-faint);font-size:10.5px;}
+  ul.grid3{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:3px 22px;}
+  ul.grid3 li{display:grid;grid-template-columns:14px 1fr;gap:7px;align-items:center;font-size:11.5px;padding:3px 0;}
+  ul.grid3 .chk{width:12px;height:12px;margin-top:0;}
+  .notes{margin-top:12px;}
+  .notes .label{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);font-weight:600;margin-bottom:5px;}
+  .notes .lines{display:block;width:100%;box-sizing:border-box;height:50px;border:1px solid var(--line);border-radius:5px;background:repeating-linear-gradient(transparent,transparent 24px,var(--line-soft) 24px,var(--line-soft) 25px);font-family:inherit;font-size:12px;line-height:25px;color:var(--ink);padding:0 8px;resize:vertical;}
+  .notes .lines:focus{outline:none;border-color:var(--accent);}
+  .context{margin-top:16px;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--bar);border-radius:6px;padding:12px 16px;}
+  .context .label{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:700;margin:0 0 5px;}
+  .context p{font-size:11.5px;color:var(--ink-soft);margin:0;line-height:1.5;}
+  .context p strong{color:var(--ink);font-weight:600;}
+  footer{margin-top:14px;font-size:10px;color:var(--ink-faint);line-height:1.5;}
+  @media print{@page{size:letter portrait;margin:0.45in;}body{background:#fff;}.doc{box-shadow:none;margin:0;max-width:none;padding:0;border-top:6px solid var(--bar);padding-top:14px;}*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+  @media (max-width:720px){.doc{padding:22px 18px;}ul.grid3{grid-template-columns:1fr;}.toprow{flex-direction:column;}}
+</style>
+
+<div class="doc" data-home="{{SLUG}}">
+  <div class="toprow">
+    <div>
+      <p class="eyebrow">Buyer's Inspection Checklist - {{COUNTY}}</p>
+      <h1>{{HOME_NAME}}</h1>
+      <p class="addr">{{ADDR_LINE}}</p>
+    </div>
+    <div class="price">{{PRICE}}</div>
+  </div>
+
+  <div class="fieldline">
+    <span>Inspection date <input type="text" class="blank" /></span>
+    <span>Inspector <input type="text" class="blank" /></span>
+  </div>
+
+  <div class="grp-title priority"><span class="pri-badge">Priority</span> From the disclosure &amp; listing <span class="hint">note findings on the line</span></div>
+  <ul class="checks">
+    <!-- PRIORITY ITEMS: one <li> per disclosure/listing-driven item. <strong> = the action/finding;
+         optional <span class="why"> = the rationale (why it matters / what the source said).
+         Order by severity (crit first). Replace these two examples with real items. -->
+    <li><input type="checkbox" class="chk" /><span class="item"><strong>{{PRIORITY_ITEM_HEADLINE}}</strong> <span class="why">{{PRIORITY_ITEM_WHY}}</span></span></li>
+    <li><input type="checkbox" class="chk" /><span class="item"><strong>{{PRIORITY_ITEM_HEADLINE}}</strong></span></li>
+  </ul>
+
+  <div class="grp-title">Standard whole-home pass</div>
+  <ul class="grid3">
+    <!-- STANDARD PASS: generic whole-home checks, lightly tailored to this home (e.g. "Water heater (2022)",
+         "Electrical panel (200A)", "Gas vs woodburning fireplace", septic vs public). ~12-15 items. -->
+    <li><input type="checkbox" class="chk" /><span>{{STANDARD_ITEM}}</span></li>
+    <li><input type="checkbox" class="chk" /><span>{{STANDARD_ITEM}}</span></li>
+  </ul>
+
+  <div class="notes">
+    <div class="label">General notes</div>
+    <textarea class="lines"></textarea>
+  </div>
+
+  <div class="context">
+    <p class="label">Disclosure context</p>
+    <!-- One tight paragraph: who the sellers are + disclosure date, the headline issues, and the
+         price-vs-AVM read. Bold the key facts with <strong>. See the rubric for tone. -->
+    <p>{{DISCLOSURE_CONTEXT_PARAGRAPH}}</p>
+  </div>
+
+  <footer>Drawn from {{FOOTER_SOURCES}}. A buyer's aid for organizing a professional inspection - not an inspection report. Verify all figures independently.</footer>
+
+<script>
+/* Auto-saves your checkboxes & notes to this browser's local storage. Survives reload. Empty = defaults. */
+(function(){
+  var badge=document.createElement('div');
+  badge.style.cssText='position:fixed;right:14px;bottom:14px;background:#1d2b3a;color:#fff;font:600 12px -apple-system,sans-serif;padding:6px 12px;border-radius:6px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:99;';
+  if(document.body)document.body.appendChild(badge);
+  function flash(t){badge.textContent=t;badge.style.opacity='1';clearTimeout(badge._t);badge._t=setTimeout(function(){badge.style.opacity='0';},1000);}
+  function controls(el){return Array.prototype.slice.call(el.querySelectorAll('input,textarea'));}
+  function debounce(fn,ms){var t;return function(){clearTimeout(t);t=setTimeout(fn,ms);};}
+  Array.prototype.forEach.call(document.querySelectorAll('[data-home]'),function(el){
+    var slug=el.getAttribute('data-home'),cs=controls(el),key='checklist:'+slug,data={};
+    try{data=JSON.parse(localStorage.getItem(key))||{};}catch(e){}
+    cs.forEach(function(c,i){var k='f'+i;if(!(k in data))return;if(c.type==='checkbox')c.checked=!!data[k];else c.value=data[k];});
+    var save=debounce(function(){
+      var d={};cs.forEach(function(c,i){d['f'+i]=c.type==='checkbox'?c.checked:c.value;});
+      try{localStorage.setItem(key,JSON.stringify(d));flash('Saved');}catch(e){flash('Save unavailable');}
+    },400);
+    el.addEventListener('input',save);el.addEventListener('change',save);
+  });
+})();
+</script>
+</div>

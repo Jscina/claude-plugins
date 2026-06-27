@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "homewise",
+  "description": "Turn a property's listing paperwork into buyer due-diligence documents. Point it at a folder, drop in a loose pile of PDFs, or add files one home at a time - it sorts and reads them by content (no fixed layout or naming required). /homewise:evaluate turns one property into a printable, disclosure-driven inspection checklist; /homewise:compare turns several into a color-coded disclosure comparison sheet plus a combined booklet. HTML first; PDF on request.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Nicholas DeTore",
+    "email": "nicholas.detore@pm.me",
+    "url": "https://github.com/nicholas1513"
+  },
+  "homepage": "https://github.com/nicholas1513/claude-plugins",
+  "repository": "https://github.com/nicholas1513/claude-plugins",
+  "license": "MIT",
+  "keywords": [
+    "real-estate",
+    "home-buying",
+    "inspection",
+    "disclosure",
+    "checklist",
+    "html",
+    "pdf"
+  ]
+}

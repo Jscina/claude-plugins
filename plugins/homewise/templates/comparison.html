@@ -1,0 +1,181 @@
+<!--
+  homewise template: cross-home disclosure comparison  (skill: /homewise:compare)
+  ============================================================================
+  - Copy the <style> block verbatim (it is the design system).
+  - The matrix supports ANY number of homes. Add one <th class="home h-X"> per home in <thead>,
+    and one <td> per home in every <tbody> row, left-to-right in the SAME order everywhere.
+    Per-home accent classes cycle: h-a/.a (blue), h-b/.b (green), h-c/.c (brown), then reuse.
+    If you have more than 3 homes, add --col-d, --col-e ... to :root and matching .h-d/.d rules.
+  - Cell status classes: good (favorable) | warn (verify/budget) | crit (disclosed issue/action)
+    | neutral (plain fact). Use <span class="lead"> for the headline value and <span class="note">
+    for the small qualifier. See references/evaluation-rubric.md for how to choose a status.
+  - The row set below is the standard comparison frame; keep rows that have data, drop rows where
+    no home has data, add a row if a dimension matters for this set.
+  - Style note: no literal em dashes; use a spaced hyphen " - ".
+
+  TOKENS: {{HEADLINE}} (e.g. "Three Homes, Side by Side"), {{LOCALE}} (e.g. "Floyd County, Indiana"),
+          {{DATE_LONG}} (e.g. "June 26, 2026"), {{SOURCES_LINE}}, {{HOME_NAME}}, {{HOME_SUB}}, {{PRICE}}.
+-->
+<title>Home Disclosure Comparison Sheet</title>
+<style>
+  :root{
+    --ink:#1d2b3a;--ink-soft:#4a5a6a;--ink-faint:#7e8b97;--paper:#f6f7f8;--card:#fff;--line:#d6dbe0;--line-soft:#e6e9ed;--accent:#2f5d7c;
+    --good-bg:#e7f0e9;--good-fg:#2f6b45;--good-dot:#3f8a5a;
+    --warn-bg:#f8eed6;--warn-fg:#87601a;--warn-dot:#c08a26;
+    --crit-bg:#f6e0dc;--crit-fg:#9c3d31;--crit-dot:#c0483a;
+    --col-a:#2f5d7c;--col-b:#4a7a4f;--col-c:#9c6b3f;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:#e9ebee;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.45;-webkit-font-smoothing:antialiased;}
+  .sheet{max-width:980px;margin:24px auto;background:var(--paper);padding:40px 44px 32px;box-shadow:0 2px 24px rgba(29,43,58,.14);}
+  .masthead{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;border-bottom:2px solid var(--ink);padding-bottom:16px;}
+  .eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:600;margin:0 0 6px;}
+  h1{font-family:Georgia,"Iowan Old Style","Times New Roman",serif;font-weight:600;font-size:30px;line-height:1.05;margin:0;text-wrap:balance;}
+  .masthead .meta{text-align:right;font-size:12px;color:var(--ink-soft);line-height:1.5;white-space:nowrap;}
+  .masthead .meta strong{color:var(--ink);}
+  .standfirst{font-size:13px;color:var(--ink-soft);margin:14px 0 0;max-width:68ch;}
+  .legend{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;margin:18px 0 22px;font-size:12px;color:var(--ink-soft);}
+  .legend .key{display:inline-flex;align-items:center;gap:7px;}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block;}
+  .dot.good{background:var(--good-dot);}.dot.warn{background:var(--warn-dot);}.dot.crit{background:var(--crit-dot);}.dot.neutral{background:var(--ink-faint);}
+  .matrix-wrap{overflow-x:auto;}
+  table.matrix{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums;}
+  table.matrix thead th{text-align:left;vertical-align:bottom;padding:0 10px 10px;border-bottom:1.5px solid var(--ink);}
+  table.matrix thead th.row-label{width:23%;}
+  .home-name{font-family:Georgia,serif;font-size:15px;font-weight:600;line-height:1.1;display:block;}
+  .home-sub{display:block;font-size:11px;color:var(--ink-faint);font-weight:400;margin-top:3px;}
+  .home-price{display:block;font-size:13px;font-weight:700;margin-top:6px;color:var(--ink);}
+  th.home{border-top:4px solid var(--bar);}
+  th.h-a{--bar:var(--col-a);}th.h-b{--bar:var(--col-b);}th.h-c{--bar:var(--col-c);}
+  table.matrix tbody th{text-align:left;font-weight:600;font-size:11.5px;color:var(--ink-soft);padding:9px 10px;border-bottom:1px solid var(--line-soft);vertical-align:top;}
+  table.matrix tbody td{padding:9px 10px;border-bottom:1px solid var(--line-soft);vertical-align:top;}
+  tbody tr.group-head th{color:var(--accent);text-transform:uppercase;letter-spacing:.1em;font-size:10px;padding-top:16px;border-bottom:none;}
+  tbody tr.group-head td{border-bottom:none;padding-top:16px;}
+  .cell{display:inline-flex;align-items:baseline;gap:7px;padding:3px 9px 3px 8px;border-radius:4px;line-height:1.3;}
+  .cell .lead{font-weight:600;}
+  .cell .note{color:inherit;opacity:.82;font-size:11px;}
+  .cell::before{content:"";width:7px;height:7px;border-radius:50%;flex:none;align-self:center;}
+  .cell.good{background:var(--good-bg);color:var(--good-fg);}.cell.good::before{background:var(--good-dot);}
+  .cell.warn{background:var(--warn-bg);color:var(--warn-fg);}.cell.warn::before{background:var(--warn-dot);}
+  .cell.crit{background:var(--crit-bg);color:var(--crit-fg);}.cell.crit::before{background:var(--crit-dot);}
+  .cell.neutral{color:var(--ink);padding-left:0;}.cell.neutral::before{display:none;}
+  .section-title{font-family:Georgia,serif;font-size:18px;font-weight:600;margin:30px 0 4px;}
+  .section-sub{font-size:12px;color:var(--ink-soft);margin:0 0 14px;}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  .card{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--bar);border-radius:6px;padding:14px 16px 16px;}
+  .card.a{--bar:var(--col-a);}.card.b{--bar:var(--col-b);}.card.c{--bar:var(--col-c);}
+  .card h3{font-family:Georgia,serif;font-size:14.5px;margin:0 0 2px;}
+  .card .addr{font-size:11px;color:var(--ink-faint);margin:0 0 10px;}
+  .card ul{margin:0;padding:0;list-style:none;}
+  .card li{font-size:12px;line-height:1.4;padding:6px 0 6px 18px;position:relative;border-top:1px solid var(--line-soft);}
+  .card li:first-child{border-top:none;}
+  .card li::before{content:"";position:absolute;left:2px;top:11px;width:7px;height:7px;border-radius:50%;}
+  .card li.crit::before{background:var(--crit-dot);}.card li.warn::before{background:var(--warn-dot);}.card li.good::before{background:var(--good-dot);}
+  .card li strong{font-weight:600;}
+  footer{margin-top:22px;padding-top:14px;border-top:1px solid var(--line);font-size:10.5px;color:var(--ink-faint);line-height:1.5;}
+  @media print{@page{size:letter portrait;margin:0.5in;}body{background:#fff;}.sheet{box-shadow:none;margin:0;max-width:none;padding:0;}.cards{break-inside:avoid;}.card{break-inside:avoid;}tr{break-inside:avoid;}footer,.section-title{break-inside:avoid;}*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+  @media (max-width:720px){.sheet{padding:24px 20px;}.cards{grid-template-columns:1fr;}.masthead{flex-direction:column;align-items:flex-start;}.masthead .meta{text-align:left;}}
+</style>
+
+<div class="sheet">
+
+  <header class="masthead">
+    <div>
+      <p class="eyebrow">Seller's Disclosure - Buyer Comparison</p>
+      <h1>{{HEADLINE}}</h1>
+    </div>
+    <div class="meta">
+      <strong>{{LOCALE}}</strong><br>
+      Prepared {{DATE_LONG}}<br>
+      Sources: {{SOURCES_LINE}}
+    </div>
+  </header>
+
+  <p class="standfirst">
+    A working comparison of what each seller disclosed against the listing and public records.
+    Status colors flag where to focus an inspection or negotiation - they are not a substitute for
+    your own inspections. Bed counts, square footage, taxes and schools should be independently verified.
+  </p>
+
+  <div class="legend">
+    <span class="key"><span class="dot good"></span> Favorable / recently updated</span>
+    <span class="key"><span class="dot warn"></span> Verify or budget for</span>
+    <span class="key"><span class="dot crit"></span> Disclosed issue / action needed</span>
+    <span class="key"><span class="dot neutral"></span> Neutral fact</span>
+  </div>
+
+  <div class="matrix-wrap">
+    <table class="matrix">
+      <thead>
+        <tr>
+          <th class="row-label">&nbsp;</th>
+          <!-- ONE <th class="home h-X"> per home, in display order. Repeat/extend for N homes. -->
+          <th class="home h-a">
+            <span class="home-name">{{HOME_NAME}}</span>
+            <span class="home-sub">{{HOME_SUB}}</span>
+            <span class="home-price">{{PRICE}}</span>
+          </th>
+          <th class="home h-b"><span class="home-name">{{HOME_NAME}}</span><span class="home-sub">{{HOME_SUB}}</span><span class="home-price">{{PRICE}}</span></th>
+          <th class="home h-c"><span class="home-name">{{HOME_NAME}}</span><span class="home-sub">{{HOME_SUB}}</span><span class="home-price">{{PRICE}}</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Standard comparison frame. Each data row: <th> row label, then one <td> per home with a
+             <span class="cell STATUS">. Keep rows with data; drop empty rows; add rows as needed.
+             The example cells below show the cell grammar - replace them with real values. -->
+
+        <tr class="group-head"><th>Price &amp; value</th><td></td><td></td><td></td></tr>
+        <tr><th>CoreLogic AVM</th>
+          <td><span class="cell neutral">{{VALUE}}</span></td>
+          <td><span class="cell neutral">{{VALUE}}</span></td>
+          <td><span class="cell neutral">{{VALUE}}</span></td></tr>
+        <tr><th>List vs. AVM</th>
+          <td><span class="cell good"><span class="lead">{{VALUE}}</span></span></td>
+          <td><span class="cell warn"><span class="lead">{{VALUE}}</span><span class="note">{{NOTE}}</span></span></td>
+          <td><span class="cell crit"><span class="lead">{{VALUE}}</span><span class="note">{{NOTE}}</span></span></td></tr>
+        <tr><th>Annual tax (w/ homestead)</th><td><span class="cell neutral">{{VALUE}}</span></td><td><span class="cell neutral">{{VALUE}}</span></td><td><span class="cell neutral">{{VALUE}}</span></td></tr>
+        <tr><th>Assessment jump</th><td><span class="cell warn"><span class="lead">{{VALUE}}</span></span></td><td><span class="cell warn"><span class="lead">{{VALUE}}</span></span></td><td><span class="cell warn"><span class="lead">{{VALUE}}</span></span></td></tr>
+
+        <tr class="group-head"><th>The house</th><td></td><td></td><td></td></tr>
+        <tr><th>Year built</th><td><span class="cell neutral">{{VALUE}}</span></td><td><span class="cell neutral">{{VALUE}}</span></td><td><span class="cell neutral">{{VALUE}}</span></td></tr>
+        <tr><th>Beds - MLS vs. assessor</th><td><span class="cell warn"><span class="lead">{{VALUE}}</span><span class="note">{{NOTE}}</span></span></td><td><span class="cell good"><span class="lead">{{VALUE}}</span></span></td><td><span class="cell warn"><span class="lead">{{VALUE}}</span><span class="note">{{NOTE}}</span></span></td></tr>
+        <tr><th>Baths</th><td><span class="cell neutral">{{VALUE}}</span></td><td><span class="cell neutral">{{VALUE}}</span></td><td><span class="cell neutral">{{VALUE}}</span></td></tr>
+        <tr><th>Finished sqft (total)</th><td><span class="cell neutral">{{VALUE}}</span></td><td><span class="cell neutral">{{VALUE}}</span></td><td><span class="cell neutral">{{VALUE}}</span></td></tr>
+        <tr><th>Lot size</th><td><span class="cell neutral">{{VALUE}}</span></td><td><span class="cell good">{{VALUE}} <span class="note">{{NOTE}}</span></span></td><td><span class="cell neutral">{{VALUE}}</span></td></tr>
+
+        <tr class="group-head"><th>Systems</th><td></td><td></td><td></td></tr>
+        <tr><th>Sewer</th><td><span class="cell good">{{VALUE}}</span></td><td><span class="cell warn">{{VALUE}} <span class="note">{{NOTE}}</span></span></td><td><span class="cell good">{{VALUE}}</span></td></tr>
+        <tr><th>Water</th><td><span class="cell good">{{VALUE}}</span></td><td><span class="cell good">{{VALUE}}</span></td><td><span class="cell good">{{VALUE}}</span></td></tr>
+        <tr><th>Furnace / AC age</th><td><span class="cell good"><span class="lead">{{VALUE}}</span></span></td><td><span class="cell warn"><span class="lead">{{VALUE}}</span><span class="note">{{NOTE}}</span></span></td><td><span class="cell warn">{{VALUE}} <span class="note">{{NOTE}}</span></span></td></tr>
+        <tr><th>Roof</th><td><span class="cell warn">{{VALUE}}</span></td><td><span class="cell warn">{{VALUE}}</span></td><td><span class="cell good">{{VALUE}} <span class="note">{{NOTE}}</span></span></td></tr>
+        <tr><th>Water heater</th><td><span class="cell good">{{VALUE}}</span></td><td><span class="cell good">{{VALUE}}</span></td><td><span class="cell good">{{VALUE}}</span></td></tr>
+        <tr><th>Est. utilities / mo</th><td><span class="cell neutral">{{VALUE}}</span></td><td><span class="cell good">{{VALUE}} <span class="note">{{NOTE}}</span></span></td><td><span class="cell warn">{{VALUE}} <span class="note">{{NOTE}}</span></span></td></tr>
+
+        <tr class="group-head"><th>Disclosure</th><td></td><td></td><td></td></tr>
+        <tr><th>Disclosed defects</th><td><span class="cell good">{{VALUE}}</span></td><td><span class="cell warn">{{VALUE}}</span></td><td><span class="cell crit">{{VALUE}} <span class="note">{{NOTE}}</span></span></td></tr>
+        <tr><th>HOA</th><td><span class="cell good">{{VALUE}}</span></td><td><span class="cell good">{{VALUE}}</span></td><td><span class="cell good">{{VALUE}}</span></td></tr>
+        <tr><th>Flood zone</th><td><span class="cell good">{{VALUE}}</span></td><td><span class="cell good">{{VALUE}}</span></td><td><span class="cell good">{{VALUE}}</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 class="section-title">Flags &amp; follow-ups</h2>
+  <p class="section-sub">The specific items to raise with each listing agent or inspector.</p>
+
+  <div class="cards">
+    <!-- ONE .card per home (classes a/b/c... match the column accents). 4-7 <li> each, status-classed. -->
+    <div class="card a">
+      <h3>{{HOME_NAME}}</h3>
+      <p class="addr">{{HOME_SUB}}</p>
+      <ul>
+        <li class="good"><strong>{{FLAG_HEADLINE}}</strong> {{FLAG_DETAIL}}</li>
+        <li class="warn">{{FLAG_DETAIL}}</li>
+      </ul>
+    </div>
+    <div class="card b"><h3>{{HOME_NAME}}</h3><p class="addr">{{HOME_SUB}}</p><ul><li class="warn">{{FLAG_DETAIL}}</li></ul></div>
+    <div class="card c"><h3>{{HOME_NAME}}</h3><p class="addr">{{HOME_SUB}}</p><ul><li class="crit">{{FLAG_DETAIL}}</li></ul></div>
+  </div>
+
+  <footer>{{FOOTER_SOURCES}} CoreLogic RealAVM values are estimates, not appraisals. All figures are approximate and should be independently verified; this sheet is a buyer's working aid, not professional advice.</footer>
+
+</div>
