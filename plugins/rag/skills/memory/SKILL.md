@@ -7,6 +7,8 @@ description: Orchestrator and runbook for the RAG memory system — a two-layer 
 
 This is the master skill for the RAG memory system. It routes requests to the correct sub-skill and guides the user through multi-step workflows. Before acting, read `references/structure.md` in this skill's directory — it is the canonical spec for the entire system.
 
+> **The card is the plan.** For any work tracked by a card, its `context.md` **is** the plan of record — the artifact a resumed session loads via `/rag:context`. Don't spin up a second, parallel plan outside the card (including a plan-mode file); if one gets created, collapse it to a pointer once the plan lives in `context.md`. One plan, in the card, is what keeps resumes rework-free.
+
 ## Sub-skills
 
 These sibling skills (also under the `rag` plugin) handle individual operations. Each has its own SKILL.md with detailed instructions. When routing to one, read its SKILL.md and follow its workflow.

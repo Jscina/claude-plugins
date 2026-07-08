@@ -37,6 +37,12 @@ Each card lives in `issues/active/CARD-XXXXX/` and contains:
 - **benchmarks.md** — Benchmark moments found during investigation, with promotion status
 - **artifacts/** — Code snippets, DDL excerpts, log samples, schema diffs
 
+> **`context.md` is the card's plan of record — the single source of truth.** It carries the framing,
+> current status, and next actions that a resumed session loads via `/rag:context`. **Do not keep a
+> parallel plan for a card outside it** (e.g. a plan-mode scratch file) — two plans drift, and a stale
+> one causes rework on resume. If a planning step produces an external plan, fold it into `context.md`
+> and leave at most a pointer behind once the work lives in the card.
+
 ## Benchmark Promotion Lifecycle
 
 A **benchmark moment** is when analysis yields a finding that teaches something durable about the system — not just how to fix this card, but how the system behaves in a category of situations.
@@ -161,6 +167,11 @@ type: [finding | ruled-out | hypothesis | next-step]
 ---
 [Entry body]
 ```
+
+**Entry economy.** Write the body with *asymmetric economy* — cut framing/restatement prose, but keep
+evidence (file paths, line numbers, exact constants, commands, error text) verbatim; those are the
+load-bearing tokens a cold session re-reads. Append entries directly (no full-file re-read on each
+append — that is a growing input-token tax). See `skills/trace/SKILL.md` for the mechanics.
 
 ## Curation Policy
 
