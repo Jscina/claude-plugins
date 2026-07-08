@@ -14,7 +14,7 @@
         "source": "git-subdir",
         "url": "https://github.com/nicholas1513/claude-plugins.git",
         "path": "plugins/rag",
-        "ref": "rag--v0.6.1"
+        "ref": "rag--v0.7.0"
       },
       "description": "Two-layer RAG memory system for investigation work — System Knowledge (durable, versioned) and Issue Memory (active cards). Bundles /rag:init, /rag:card, /rag:trace, /rag:promote, /rag:context, /rag:enrich, /rag:migrate, and the /rag:memory orchestrator.",
       "keywords": [
