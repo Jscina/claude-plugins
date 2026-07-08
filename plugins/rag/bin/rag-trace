@@ -58,6 +58,9 @@ from pathlib import Path
 
 TYPES = ("finding", "ruled-out", "hypothesis", "next-step")
 
+# Rough tokens-per-char estimate, only for the informational economy readout below.
+_CHARS_PER_TOKEN = 4
+
 # Path separators + characters illegal on Windows/exFAT + control chars.
 _UNSAFE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
@@ -167,6 +170,9 @@ def main(argv: list[str] | None = None) -> int:
         # Bootstrap the header if this card was activated from backlog (no trace.md yet).
         if not trace.exists():
             trace.write_text(trace_header(card_name), encoding="utf-8")
+        # File size BEFORE appending: this is what the old "read the file, then append"
+        # workflow pulled into the model's context on every entry (the re-read tax).
+        bytes_before = trace.stat().st_size
         block = f"\n---\ndate: {date}\nsession: {args.session}\ntype: {args.type_}\n---\n{body}\n"
         with trace.open("a", encoding="utf-8") as fh:  # append-only: cannot touch prior entries
             fh.write(block)
@@ -175,7 +181,10 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     after = line_count(trace)
 
+    # Minimal economy readout (no persistent state): show the re-read tax this append avoided.
+    saved_tokens = round(bytes_before / _CHARS_PER_TOKEN)
     print(f"Appended {args.type_} entry to {trace} ({before} -> {after} lines)")
+    print(f"  ~{saved_tokens:,} tokens not pulled into context (appended without re-reading the trace)")
     return 0
 
 

@@ -70,10 +70,17 @@ with **asymmetric economy**:
   run, and error text. Never paraphrase, summarize, or truncate these; they are the load-bearing
   tokens that make the trace worth re-reading.
 - One claim per entry (split multiple findings — see Key details).
+- **Budget (soft)** — keep *framing* prose to ~2–3 sentences; let the evidence run as long as it must.
+  Rough gauge: most entries land well under ~60 words of prose beyond the evidence. A target, not a
+  hard cap — never cut evidence to hit a number.
 
 This is the community **caveman** skill's one durable rule — be terse, but never touch code,
 commands, or errors — scoped to the trace. caveman itself is a *global* output-style tool; this
 convention applies the same discipline locally, so no dependency is required.
+
+`rag-trace` prints, per append, an estimate of the tokens it kept out of context by appending instead
+of re-reading the trace — a standing reminder that the re-read tax is real and that lean entries
+compound over a card's life.
 
 ## Entry type guidance
 
