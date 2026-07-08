@@ -92,6 +92,18 @@ def test_custom_session_label(rag_trace, empty_corpus):
     assert "session: gemini" in text
 
 
+def test_prints_economy_readout(rag_trace, empty_corpus, capsys):
+    """Each append reports the re-read tokens it avoided (minimal, no persistent state)."""
+    _active_card(empty_corpus, name="CARD-READOUT", with_trace=True)
+    _run(rag_trace, empty_corpus, ["--card", "READOUT", "--type", "finding"], body="x")
+    out = capsys.readouterr().out
+    assert "not pulled into context" in out
+    assert "~" in out and "tokens" in out
+    # the seeded trace header is non-empty, so the avoided-token estimate should be > 0
+    num = out.split("~", 1)[1].split("tokens", 1)[0].strip().replace(",", "")
+    assert int(num) > 0
+
+
 # --- guards --------------------------------------------------------------------------
 
 def test_rejects_nonexistent_card(rag_trace, empty_corpus):

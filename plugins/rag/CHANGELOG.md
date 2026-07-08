@@ -3,6 +3,20 @@
 All notable changes to the `rag` plugin are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com); the plugin uses semantic versioning.
 
+## [0.7.0] - 2026-07-08
+
+### Added
+- **`rag-trace` per-append economy readout.** Each append now prints an estimate of the tokens it kept
+  out of context by appending instead of re-reading the trace (e.g. `~430 tokens not pulled into
+  context`). It reuses the file size the tool already stats -- no persistent state, no new flag, no
+  lifetime counter to maintain. Turns the token win from asserted into shown, per append.
+
+### Changed
+- **Trace economy convention gains a soft budget** (`skills/trace/SKILL.md`): keep *framing* prose to
+  ~2-3 sentences / under ~60 words beyond the evidence -- a target, not a hard cap, and never cut
+  evidence to hit a number. Motivated by measuring the archived traces, whose entries had been
+  averaging ~100-200 words.
+
 ## [0.6.1] - 2026-07-08
 
 ### Fixed
