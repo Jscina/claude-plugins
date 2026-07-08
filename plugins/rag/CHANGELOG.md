@@ -3,6 +3,23 @@
 All notable changes to the `rag` plugin are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com); the plugin uses semantic versioning.
 
+## [0.6.1] - 2026-07-08
+
+### Fixed
+- **`bin/` scripts now run on Windows where `python3` is the Microsoft Store alias stub.**
+  `rag-trace`, `rag-new-card`, and `rag-migrate` used `#!/usr/bin/env python3`; on Windows that often
+  resolves to the App Execution Alias stub (prints "Python was not found" and exits non-zero) rather
+  than a real interpreter, so invoking them bare -- exactly how the skills call them -- silently
+  no-opped. Each script is now a POSIX-sh / Python 3 polyglot: a `/bin/sh` prologue health-checks
+  `python3` -> `python` -> `py -3` (skipping any that fail `-c ""`, which is how the stub is skipped)
+  and re-execs the file under the first working interpreter. On POSIX this simply re-execs `python3`.
+  No new dependencies; the `rag-<tool>` call contract is unchanged.
+
+### Internal
+- `tests/test_bin_launcher.py` locks the launcher structure (sh shebang, health-checked resolution,
+  valid Python module, single docstring before `__future__`) so the bare `python3` shebang cannot
+  silently return.
+
 ## [0.6.0] - 2026-07-08
 
 ### Added

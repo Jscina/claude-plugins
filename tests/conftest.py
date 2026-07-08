@@ -44,6 +44,11 @@ def rag_trace():
 
 
 @pytest.fixture(scope="session")
+def rag_bin_dir() -> Path:
+    return RAG_BIN
+
+
+@pytest.fixture(scope="session")
 def card_templates_dir() -> Path:
     return RAG_PLUGIN / "skills" / "card" / "templates"
 
