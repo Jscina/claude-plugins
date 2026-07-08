@@ -1,5 +1,22 @@
-#!/usr/bin/env python3
-"""
+#!/bin/sh
+# POSIX-sh / Python 3 polyglot launcher. The shell prologue below re-execs this
+# file under a WORKING Python 3. This matters on Windows, where `python3` is
+# often the Microsoft Store alias stub (prints "Python was not found" and exits
+# non-zero) rather than a real interpreter, and no real `python3.exe` is on PATH.
+# The `-c ""` health check skips any non-working interpreter and falls back to
+# `python` / `py -3`. On POSIX this simply re-execs the real python3.
+""":"
+for _py in python3 python; do
+    if command -v "$_py" >/dev/null 2>&1 && "$_py" -c "" >/dev/null 2>&1; then
+        exec "$_py" "$0" "$@"
+    fi
+done
+if command -v py >/dev/null 2>&1 && py -3 -c "" >/dev/null 2>&1; then
+    exec py -3 "$0" "$@"
+fi
+echo "rag plugin: no working Python 3 interpreter found (tried python3, python, py -3)" >&2
+exit 1
+":"
 rag-migrate — bring an existing rag-memory/ corpus up to the current plugin format generation.
 
 Idempotent and dry-run by default. Safe to re-run.
