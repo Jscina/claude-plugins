@@ -33,6 +33,17 @@ outweigh the upkeep.
 - **One source of truth per fact.** Don't maintain a second copy of something (a parallel plan, a
   duplicated doc) that has to be kept in sync — point at the canonical one instead.
 
+### Before writing code, climb the ladder
+Adapted from the community `ponytail` skill (kept as discipline, not a dependency). Before generating
+code, gate it — stop at the first question that resolves the work:
+1. Does this need to exist at all? (The cheapest code is the code you don't write.)
+2. Is it already in the codebase or a dependency? Reuse it; don't rewrite it.
+3. What is the least change that fully solves the problem?
+
+Native plan mode / brainstorming-first is where this gate lives; this just names it. This is the
+pre-work counterpart to "lean on code" above: that decides *when code is worth writing*, this decides
+*whether this particular code should be written at all.*
+
 ### How to notice the opportunities
 Watch traces and recurring work (the RAG "skill-discovery pass"):
 - A repeated multi-step manual sequence → candidate script/skill.
