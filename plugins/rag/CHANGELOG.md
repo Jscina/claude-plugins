@@ -3,7 +3,29 @@
 All notable changes to the `rag` plugin are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com); the plugin uses semantic versioning.
 
-## [0.5.0] - 2026-06-16
+## [0.6.0] - 2026-07-08
+
+### Added
+- **`bin/rag-trace` trace-append helper.** A stdlib-only script (sibling to `rag-new-card`/`rag-migrate`,
+  on PATH when the plugin loads) that appends one structured entry to an active card's `trace.md`:
+  `rag-trace --card CARD-XXXXX --type finding --body "..."` (or pipe a multi-line body on stdin). It
+  stamps the timestamp, formats the block, and appends in append mode, so the format cannot drift and
+  append-only is guaranteed by the tool. Line counts are read inside the script, so the model no longer
+  re-reads the growing trace on every entry (removing an input-token tax); the entry body stays
+  model-authored. It bootstraps `trace.md`'s header for a card just activated from backlog, and refuses
+  non-active cards with an activation hint.
+- **Trace economy convention.** `skills/trace/SKILL.md` gains a "Writing economical entries" section:
+  asymmetric economy - cut framing prose, keep evidence (file paths, numbers, commands, errors)
+  verbatim. Mirrored as short pointers in the card `trace.md` template and `structure.md`.
+- **"The card is the plan" guardrail.** `structure.md` and the orchestrator now state that a card's
+  `context.md` is its single plan of record; do not keep a parallel plan (e.g. a plan-mode file) that
+  can drift and cause rework on resume.
+
+### Changed
+- **`/rag:trace` now calls `rag-trace`** as its primary path (the hand-built append is kept only as a
+  fallback for when the helper is not on PATH).
+
+
 
 ### Added
 - **Issue-card headers.** Each card's `context.md` now carries a YAML frontmatter header
