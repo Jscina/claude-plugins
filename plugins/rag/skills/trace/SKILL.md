@@ -25,17 +25,55 @@ stays on your machine.
    - **Entry body** — the content to log (can be multiple lines)
    - **Session label** — `claude`, `gemini`, `manual`, or another label (default to `claude` if running in Claude)
 
-3. **Format the entry block:**
+3. **Append the entry with `rag-trace`** — the bundled helper (`bin/rag-trace`, on PATH when the
+   plugin loads). It stamps the timestamp, formats the block, and appends in append mode, so the
+   format can't drift, append-only is guaranteed by the tool, and **nothing re-reads the growing
+   trace into your context** — the line counts are computed inside the script (zero model-context
+   tokens), eliminating the input re-read tax rather than working around it. Pass a one-line body
+   inline, or pipe a multi-line body on stdin:
+
+   ```bash
+   rag-trace --card CARD-XXXXX --type finding --body "Truncation is a 4096 const at export.c:342"
+
+   # multi-line body via stdin:
+   rag-trace --card CARD-XXXXX --type hypothesis <<'EOF'
+   [entry body — can span many lines]
+   EOF
+   ```
+
+   - Types: `finding | ruled-out | hypothesis | next-step`.
+   - Session defaults to `claude` (`--session gemini|manual` to override); `--root` if the corpus
+     isn't auto-detected.
+   - It bootstraps `trace.md`'s header if the card was just activated from backlog, and **refuses
+     non-active cards** (traces are for active cards) with a message pointing at the fix.
+
+   **Fallback — only if `rag-trace` isn't on PATH:** append the block by hand, but still **never read
+   the file in first** (that re-read is the tax). Append with a blank-line separator:
+
    ```
    ---
    date: YYYY-MM-DD HH:MM
-   session: [session label]
-   type: [entry type]
+   session: [label]
+   type: [finding|ruled-out|hypothesis|next-step]
    ---
-   [Entry body text]
+   [body]
    ```
 
-4. **Append to trace.md.** Read the current file to get a line count, then append the new block with a blank line separator. Report the line count before and after as confirmation.
+## Writing economical entries
+
+An entry earns its tokens by what a **cold future session can recover from it**, not by prose. Write
+with **asymmetric economy**:
+
+- **Cut hard** — framing sentences, restated context, narrative connective tissue, hedging.
+  Fragments are fine. If deleting a phrase would not change what a later session *does*, delete it.
+- **Keep verbatim** — the evidence: file paths, line numbers, exact identifiers/constants, commands
+  run, and error text. Never paraphrase, summarize, or truncate these; they are the load-bearing
+  tokens that make the trace worth re-reading.
+- One claim per entry (split multiple findings — see Key details).
+
+This is the community **caveman** skill's one durable rule — be terse, but never touch code,
+commands, or errors — scoped to the trace. caveman itself is a *global* output-style tool; this
+convention applies the same discipline locally, so no dependency is required.
 
 ## Entry type guidance
 
@@ -49,4 +87,6 @@ Help the user pick the right type if they're unsure:
 
 - Use the current timestamp (date + time to the minute) for the `date` field
 - If the user provides multiple findings in one message, create separate entries for each
-- Preserve all existing content in trace.md — read, then append
+- Append-only: never overwrite or reorder. Use `rag-trace` (or the step-3 fallback append) rather
+  than reading the file in first — appending is what guarantees existing content is untouched
+- One entry per finding: call `rag-trace` once per entry (loop for multiple findings)

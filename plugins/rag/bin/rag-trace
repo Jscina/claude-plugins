@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+"""
+rag-trace — append one structured entry to an active RAG card's trace.md in one command.
+
+Part of the `rag` plugin. `bin/` is on PATH when the plugin loads, so this is callable
+as `rag-trace` from skills, hooks, or a shell.
+
+Usage:
+  rag-trace --card CARD-40576 --type finding --body "Truncation is a 4096 const at export.c:342"
+  printf '%s' "$multiline_body" | rag-trace --card ADO-40576 --type ruled-out
+  rag-trace --card BUG-12 --type next-step --body "..." --session gemini --root /path/to/rag-memory
+
+Why this exists (vs. a hand-built heredoc in the skill):
+  Formatting a timestamped block, appending it safely, and counting lines is deterministic glue.
+  Doing it in code — instead of as a per-invocation model instruction — is cheaper and more
+  reliable: the timestamp/format can't drift, append-only is guaranteed by the tool, and the
+  before/after line count is read HERE (zero model-context tokens) rather than by the model
+  re-reading the whole growing trace on every entry (the input re-read tax this removes).
+
+  The *body* stays model-authored — judgment (what to log, written with asymmetric economy) stays
+  with the model; only the mechanics move to code.
+
+Behavior:
+  * Appends to issues/active/CARD-XXXXX/trace.md. Traces are for ACTIVE cards.
+  * If the active card dir exists but has no trace.md yet (e.g. just activated from backlog), a
+    header is created first, then the entry is appended.
+  * Append-only: opens in append mode, never reads-then-rewrites, so existing entries are safe.
+  * Body comes from --body, or from stdin if --body is omitted (for multi-line bodies).
+  * Exits non-zero if the card isn't an active card or the body is empty.
+
+Dependencies: Python 3 standard library only. No install step.
+"""
+from __future__ import annotations
+
+import argparse
+import datetime as _dt
+import os
+import re
+import sys
+from pathlib import Path
+
+TYPES = ("finding", "ruled-out", "hypothesis", "next-step")
+
+# Path separators + characters illegal on Windows/exFAT + control chars.
+_UNSAFE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+
+def normalize_card_name(raw: str) -> str:
+    """Reduce an arbitrary id to one safe path component with a canonical CARD- prefix.
+
+    Mirrors rag-new-card so `--card 40576`, `--card CARD-40576`, and `--card "#40576"`
+    all resolve to the same directory.
+    """
+    cleaned = _UNSAFE.sub(" ", raw.replace("#", ""))
+    parts = [p for p in cleaned.split() if p.strip(".")]  # drop '.', '..', '...' segments
+    name = re.sub(r"-{2,}", "-", "-".join(parts)).strip("-.")
+    if not name:
+        raise ValueError(f"card id is empty after sanitization: {raw!r}")
+    name = "CARD-" + (name[5:] if name.upper().startswith("CARD-") else name)
+    if "/" in name or "\\" in name or os.sep in name:
+        raise ValueError(f"invalid card id after sanitization: {name!r}")
+    return name
+
+
+def find_corpus_root(override: str | None) -> Path:
+    """Find the rag-memory/ corpus: --root, a rag-memory/ in CWD, or an ancestor."""
+    if override:
+        root = Path(override).expanduser().resolve()
+        if not (root / "issues").is_dir():
+            raise FileNotFoundError(f"--root {root} has no issues/ dir; is it a rag-memory corpus?")
+        return root
+    cwd = Path.cwd().resolve()
+    if (cwd / "rag-memory" / "issues").is_dir():
+        return cwd / "rag-memory"
+    for p in (cwd, *cwd.parents):
+        if p.name == "rag-memory" and (p / "issues").is_dir():
+            return p
+        if (p / "rag-memory" / "issues").is_dir():
+            return p / "rag-memory"
+    raise FileNotFoundError(
+        f"could not find a rag-memory/ corpus from {cwd}. Run /rag:init first, or pass --root."
+    )
+
+
+def line_count(path: Path) -> int:
+    """Count lines by streaming — cheap, and (crucially) costs zero model-context tokens."""
+    if not path.exists():
+        return 0
+    with path.open("r", encoding="utf-8") as fh:
+        return sum(1 for _ in fh)
+
+
+def trace_header(card_name: str) -> str:
+    return (
+        f"# Investigation Trace — {card_name}\n\n"
+        "This file is an **append-only** log of the investigation. Each entry records a finding, "
+        "ruled-out hypothesis, new hypothesis, or next step. Never overwrite or truncate existing "
+        "entries.\n\n"
+        "Write with **asymmetric economy**: cut framing prose, keep evidence (file paths, numbers, "
+        "commands, errors) verbatim.\n"
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="rag-trace",
+        description="Append one structured entry to an active RAG card's trace.md.",
+    )
+    parser.add_argument("--card", required=True, help="Card ID, e.g. CARD-40576 (CARD- prefix added if absent)")
+    parser.add_argument("--type", required=True, choices=TYPES, dest="type_", help="Entry type")
+    parser.add_argument("--body", default=None, help="Entry body (omit to read from stdin)")
+    parser.add_argument("--session", default="claude", help="Session label (default: claude)")
+    parser.add_argument("--root", default=None, help="Path to the rag-memory corpus (default: auto-detect)")
+    parser.add_argument("--date", default=None, help="Timestamp 'YYYY-MM-DD HH:MM' (default: now)")
+    args = parser.parse_args(argv)
+
+    try:
+        card_name = normalize_card_name(args.card)
+        root = find_corpus_root(args.root)
+    except (ValueError, FileNotFoundError) as e:
+        print(f"rag-trace: error: {e}", file=sys.stderr)
+        return 2
+
+    body = args.body if args.body is not None else sys.stdin.read()
+    body = body.strip()
+    if not body:
+        print("rag-trace: error: empty entry body (pass --body or pipe text on stdin)", file=sys.stderr)
+        return 2
+
+    card_dir = root / "issues" / "active" / card_name
+    if not card_dir.is_dir():
+        # Be helpful: say where it actually is, if anywhere.
+        for other in ("backlog", "done", "archive", "closed"):
+            if (root / "issues" / other / card_name).is_dir():
+                print(
+                    f"rag-trace: error: {card_name} is in issues/{other}/, not active. "
+                    f"Traces are for active cards — activate it first "
+                    f"(mv it to issues/active/).",
+                    file=sys.stderr,
+                )
+                return 1
+        print(f"rag-trace: error: no active card {card_name} (looked in {card_dir})", file=sys.stderr)
+        return 1
+
+    trace = card_dir / "trace.md"
+    date = args.date or _dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    before = line_count(trace)
+    try:
+        # Bootstrap the header if this card was activated from backlog (no trace.md yet).
+        if not trace.exists():
+            trace.write_text(trace_header(card_name), encoding="utf-8")
+        block = f"\n---\ndate: {date}\nsession: {args.session}\ntype: {args.type_}\n---\n{body}\n"
+        with trace.open("a", encoding="utf-8") as fh:  # append-only: cannot touch prior entries
+            fh.write(block)
+    except OSError as e:
+        print(f"rag-trace: error: failed appending entry: {e}", file=sys.stderr)
+        return 1
+    after = line_count(trace)
+
+    print(f"Appended {args.type_} entry to {trace} ({before} -> {after} lines)")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

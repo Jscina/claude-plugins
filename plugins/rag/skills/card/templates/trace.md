@@ -2,6 +2,8 @@
 
 This file is an **append-only** log of the investigation. Each entry records a finding, ruled-out hypothesis, new hypothesis, or next step. Never overwrite or truncate existing entries.
 
+Write with **asymmetric economy**: cut framing prose, keep evidence (file paths, numbers, commands, errors) verbatim. Append new entries directly — don't read the whole file back in first.
+
 ---
 date: {{DATE}} 00:00
 session: manual
